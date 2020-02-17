@@ -290,51 +290,48 @@ void Renderer::UpdateDescriptorSets(const VkWriteDescriptorSet* someWriteDescrip
 	table.myUpdateDescriptorSets(myDevice, aWriteDescriptorCount, someWriteDescriptorSets, 0, nullptr);
 }
 
-void Renderer::AllocateDeviceMemory(Buffer& aBuffer, DeviceMemory& aDeviceMemoryOut)
+void Renderer::GetMemoryRequirements(const Buffer& aBuffer, VkMemoryRequirements& aMemoryRequirementsOut)
 {
-	// TODO: For now we will only allocate host visible memory since we will need access to that memory from host
-	// until we have some kind of loading to GPU
+	const VulkanDeviceDispatchTable& deviceTable = myDeviceTable;
+	deviceTable.myGetBufferMemoryRequirements(myDevice, Unwrap(aBuffer), &aMemoryRequirementsOut);
+}
 
+void Renderer::AllocateDeviceMemory(VkDeviceSize aSize, uint32_t aMemoryTypeBits, VkMemoryPropertyFlags aMemoryProperties, DeviceMemory& aDeviceMemoryOut)
+{
 	// Get physical device memory properties
 	const VulkanInstanceDispatchTable& instanceTable = myInstanceTable;
 	const VulkanDeviceDispatchTable& deviceTable = myDeviceTable;
 	VkPhysicalDeviceMemoryProperties memoryProperties;
 	instanceTable.myGetPhysicalDeviceMemoryProperties(myPhysicalDevice, &memoryProperties);
 
-	// Get memory requirements for the buffer
-	VkMemoryRequirements memoryRequirements;
-	deviceTable.myGetBufferMemoryRequirements(myDevice, Unwrap(aBuffer), &memoryRequirements);
-
 	// Search for memory
 	uint32_t memoryIndex = UINT32_MAX;
-	uint32_t wantedMemoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 	for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
 	{
 		uint32_t memoryTypeBits = (1 << i);
-
-		bool validMemoryType = memoryTypeBits & memoryRequirements.memoryTypeBits;
-		bool hasWantedMemoryProperties = memoryProperties.memoryTypes[i].propertyFlags & wantedMemoryProperties;
+	
+		bool validMemoryType = memoryTypeBits & aMemoryTypeBits;
+		bool hasWantedMemoryProperties = memoryProperties.memoryTypes[i].propertyFlags & aMemoryProperties;
 		if (validMemoryType && hasWantedMemoryProperties)
 		{
 			memoryIndex = i;
 			break;
 		}
 	}
-
+	
 	if (memoryIndex == UINT32_MAX)
 		Debug::Breakpoint();
-
+	
 	// Allocate memory
 	VkMemoryAllocateInfo memoryAllocateInfo
 	{
 		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		nullptr,
-		memoryRequirements.size,
+		aSize,
 		memoryIndex
 	};
-
+	
 	deviceTable.myAllocateMemory(myDevice, &memoryAllocateInfo, nullptr, Unwrap(&aDeviceMemoryOut));
-	deviceTable.myBindBufferMemory(myDevice, Unwrap(aBuffer), Unwrap(aDeviceMemoryOut), 0);
 }
 
 void Renderer::FreeDeviceMemory(DeviceMemory& aDeviceMemory)
@@ -348,7 +345,13 @@ void Renderer::FreeDeviceMemory(DeviceMemory& aDeviceMemory)
 #endif // IS_DEBUG_BUILD
 }
 
-void* Renderer::MapDeviceMemory(DeviceMemory& aDeviceMemory, uint32_t anOffset, uint32_t aSize)
+void Renderer::BindDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, Buffer& aBuffer)
+{
+	const VulkanDeviceDispatchTable& deviceTable = myDeviceTable;
+	deviceTable.myBindBufferMemory(myDevice, Unwrap(aBuffer), Unwrap(aDeviceMemory), anOffset);
+}
+
+void* Renderer::MapDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, VkDeviceSize aSize)
 {
 	const VulkanDeviceDispatchTable& table = myDeviceTable;
 

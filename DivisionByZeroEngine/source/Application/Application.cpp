@@ -40,7 +40,8 @@ namespace Gfx
 	Buffer locBuffer;
 	DeviceMemory locDeviceMemory;
 	Buffer locUniformBuffer[MaxConcurrentImages];
-	DeviceMemory locUniformDeviceMemory[MaxConcurrentImages];
+	DeviceMemory locUniformDeviceMemory;
+	VkDeviceSize locUniformBufferOffset = 0u;
 
 	// Descriptors
 	DescriptorPool locDescriptorPool;
@@ -503,8 +504,13 @@ void Application::Initialize()
 
 	myRenderer.Create(bufferCreateInfo, Gfx::locBuffer);
 
+	VkMemoryRequirements vertexBufferMemoryRequirements;
+	myRenderer.GetMemoryRequirements(Gfx::locBuffer, vertexBufferMemoryRequirements);
+
 	// Allocate memory to associate to vertex buffer
-	myRenderer.AllocateDeviceMemory(Gfx::locBuffer, Gfx::locDeviceMemory);
+	VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	myRenderer.AllocateDeviceMemory(vertexBufferMemoryRequirements.size, vertexBufferMemoryRequirements.memoryTypeBits, memoryPropertyFlags, Gfx::locDeviceMemory);
+	myRenderer.BindDeviceMemory(Gfx::locDeviceMemory, 0, Gfx::locBuffer);
 
 	// Map memory
 	void* mappedDeviceMemory = myRenderer.MapDeviceMemory(Gfx::locDeviceMemory, 0, sizeof(vertexBufferData));
@@ -523,12 +529,21 @@ void Application::Initialize()
 	bufferCreateInfo.size = sizeof(mvp);
 
 	for (uint32_t i = 0; i < Gfx::MaxConcurrentImages; ++i)
-	{
 		myRenderer.Create(bufferCreateInfo, Gfx::locUniformBuffer[i]);
-		myRenderer.AllocateDeviceMemory(Gfx::locUniformBuffer[i], Gfx::locUniformDeviceMemory[i]);
-		mappedDeviceMemory = myRenderer.MapDeviceMemory(Gfx::locUniformDeviceMemory[i], 0, sizeof(mvp));
+
+	// Allocate uniform buffers memory
+	VkMemoryRequirements uniformBufferMemoryRequirements;
+	myRenderer.GetMemoryRequirements(Gfx::locUniformBuffer[0], uniformBufferMemoryRequirements);
+	myRenderer.AllocateDeviceMemory(uniformBufferMemoryRequirements.size * Gfx::MaxConcurrentImages, uniformBufferMemoryRequirements.memoryTypeBits, memoryPropertyFlags, Gfx::locUniformDeviceMemory);
+	Gfx::locUniformBufferOffset = uniformBufferMemoryRequirements.size;
+
+	for (uint32_t i = 0; i < Gfx::MaxConcurrentImages; ++i)
+	{
+		VkDeviceSize offset = Gfx::locUniformBufferOffset * i;
+		myRenderer.BindDeviceMemory(Gfx::locUniformDeviceMemory, offset, Gfx::locUniformBuffer[i]);
+		mappedDeviceMemory = myRenderer.MapDeviceMemory(Gfx::locUniformDeviceMemory, offset, sizeof(mvp));
 		std::memcpy(mappedDeviceMemory, &mvp, sizeof(mvp));
-		myRenderer.UnmapDeviceMemory(Gfx::locUniformDeviceMemory[i]);
+		myRenderer.UnmapDeviceMemory(Gfx::locUniformDeviceMemory);
 	}
 
 	// Descriptor pool and sets
@@ -601,11 +616,9 @@ void Application::Shutdown()
 	// Destroy all resources
 	myRenderer.Destroy(Gfx::locDescriptorPool, Gfx::locDescriptorSet, Gfx::MaxConcurrentImages);
 	myRenderer.Destroy(Gfx::locDescriptorPool);
+	myRenderer.FreeDeviceMemory(Gfx::locUniformDeviceMemory);
 	for (uint32_t i = 0; i < Gfx::MaxConcurrentImages; ++i)
-	{
-		myRenderer.FreeDeviceMemory(Gfx::locUniformDeviceMemory[i]);
 		myRenderer.Destroy(Gfx::locUniformBuffer[i]);
-	}
 	myRenderer.FreeDeviceMemory(Gfx::locDeviceMemory);
 	myRenderer.Destroy(Gfx::locBuffer);
 	myRenderer.Destroy(Gfx::locGraphicsPipeline);
@@ -719,9 +732,10 @@ void Application::WindowPaint()
 	xPosition = xPosition < 5.0f ? xPosition : -5.0f;
 	float aspectRatio = static_cast<float>(myMainWindow.GetClientWidth()) / static_cast<float>(myMainWindow.GetClientHeight());
 	Matrix44 mvp = Matrix44::Perspective(Math::DegreeToRadian(60.0f), aspectRatio, 0.1f, 100.0f) * Matrix44::Scale(1.0f, 1.0f, 1.0f) * Matrix44::Translate(xPosition, 0.0f, -10.0f);
-	void* mappedDeviceMemory = myRenderer.MapDeviceMemory(Gfx::locUniformDeviceMemory[Gfx::checkIndex], 0, sizeof(mvp));
+	VkDeviceSize offset = Gfx::locUniformBufferOffset * Gfx::checkIndex;
+	void* mappedDeviceMemory = myRenderer.MapDeviceMemory(Gfx::locUniformDeviceMemory, offset, sizeof(mvp));
 	std::memcpy(mappedDeviceMemory, &mvp, sizeof(mvp));
-	myRenderer.UnmapDeviceMemory(Gfx::locUniformDeviceMemory[Gfx::checkIndex]);
+	myRenderer.UnmapDeviceMemory(Gfx::locUniformDeviceMemory);
 
 	CommandBuffer& cmd = Gfx::locCommandBuffers[Gfx::frameIndex];
 	Framebuffer& framebuffer = Gfx::locFramebuffers[Gfx::frameIndex];
@@ -775,8 +789,8 @@ void Application::WindowPaint()
 
 	// Draw
 	myRenderer.BindDescriptorSets(cmd, Gfx::locPipelineLayout, &Gfx::locDescriptorSet[Gfx::checkIndex], 1);
-	VkDeviceSize offset = 0u;
-	myRenderer.BindVertexBuffers(cmd, &Gfx::locBuffer, &offset, 1);
+	VkDeviceSize vertexBufferOffset = 0u;
+	myRenderer.BindVertexBuffers(cmd, &Gfx::locBuffer, &vertexBufferOffset, 1);
 	myRenderer.Draw(cmd, 4, 0, 1, 0);
 
 	myRenderer.EndRenderPass(cmd);

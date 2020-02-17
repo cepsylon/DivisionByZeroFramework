@@ -7,6 +7,8 @@
 
 #ifndef WRAP_VULKAN_RESOURCE
 #define WRAP_VULKAN_RESOURCE(name) class name;\
+inline const Vk##name& Unwrap(const name& aResource) { return reinterpret_cast<const Vk##name&>(aResource); } \
+inline const Vk##name* Unwrap(const name* aResource) { return reinterpret_cast<const Vk##name*>(aResource); } \
 inline Vk##name& Unwrap(name& aResource) { return reinterpret_cast<Vk##name&>(aResource); } \
 inline Vk##name* Unwrap(name* aResource) { return reinterpret_cast<Vk##name*>(aResource); } \
 class name { Vk##name myHandle; }

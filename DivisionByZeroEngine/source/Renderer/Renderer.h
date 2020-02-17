@@ -72,10 +72,12 @@ public:
 	void Destroy(DescriptorPool& aDescriptorPool, DescriptorSet* someDescriptorSet, uint32_t aDescriptorSetCount);
 	void UpdateDescriptorSets(const VkWriteDescriptorSet* someWriteDescriptorSets, uint32_t aWriteDescriptorCount);
 
-	void AllocateDeviceMemory(Buffer& aBuffer, DeviceMemory& aDeviceMemoryOut);
+	void GetMemoryRequirements(const Buffer& aBuffer, VkMemoryRequirements& aMemoryRequirementsOut);
+	void AllocateDeviceMemory(VkDeviceSize aSize, uint32_t aMemoryTypeBits, VkMemoryPropertyFlags aMemoryProperties, DeviceMemory& aDeviceMemoryOut);
 	void FreeDeviceMemory(DeviceMemory& aDeviceMemory);
 
-	void* MapDeviceMemory(DeviceMemory& aDeviceMemory, uint32_t anOffset, uint32_t aSize);
+	void BindDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, Buffer& aBuffer);
+	void* MapDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, VkDeviceSize aSize);
 	void UnmapDeviceMemory(DeviceMemory& aDeviceMemory);
 
 	void ResizeSwapchain(int aWidth, int aHeight);
