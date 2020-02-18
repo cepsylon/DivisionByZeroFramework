@@ -2,9 +2,10 @@
 
 #include "Math/SIMDVector.h"
 
-#include <stdlib.h>
-
-static constexpr int locStressTestCount = 10000;
+namespace
+{
+	static constexpr int locStressTestCount = 10000;
+}
 
 TEST_CASE("SIMDVector_CanBeLoadedWithAllValues", "[Common], [SIMDVector]")
 {

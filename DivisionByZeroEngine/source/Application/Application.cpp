@@ -8,6 +8,7 @@
 #include "Window/Window.h"
 
 #include "Renderer/VulkanWrapper.h"
+#include "Renderer/Camera.h"
 
 #include "Utils/Debug.h"
 
@@ -46,6 +47,8 @@ namespace Gfx
 	// Descriptors
 	DescriptorPool locDescriptorPool;
 	DescriptorSet locDescriptorSet[MaxConcurrentImages];
+
+	Camera locCamera;
 }
 
 void Application::Initialize()
@@ -523,7 +526,7 @@ void Application::Initialize()
 
 	// Create uniform buffer
 	float aspectRatio = static_cast<float>(myMainWindow.GetClientWidth()) / static_cast<float>(myMainWindow.GetClientHeight());
-	Matrix44 mvp = Matrix44::Perspective(Math::DegreeToRadian(60.0f), aspectRatio, 0.1f, 100.0f) * Matrix44::Scale(1.0f, 1.0f, 1.0f) * Matrix44::Translate(0.0f, 0.0f, -10.0f);
+	Matrix44 mvp = Gfx::locCamera.ProjectionMatrix(aspectRatio) * Matrix44::Translate(0.0f, 0.0f, -10.0f);
 
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 	bufferCreateInfo.size = sizeof(mvp);
@@ -728,10 +731,10 @@ void Application::WindowPaint()
 
 	// Update uniform buffer
 	static float xPosition = 0.0f;
-	xPosition += 0.16f;
+	xPosition += 0.08f;
 	xPosition = xPosition < 5.0f ? xPosition : -5.0f;
 	float aspectRatio = static_cast<float>(myMainWindow.GetClientWidth()) / static_cast<float>(myMainWindow.GetClientHeight());
-	Matrix44 mvp = Matrix44::Perspective(Math::DegreeToRadian(60.0f), aspectRatio, 0.1f, 100.0f) * Matrix44::Scale(1.0f, 1.0f, 1.0f) * Matrix44::Translate(xPosition, 0.0f, -10.0f);
+	Matrix44 mvp = Gfx::locCamera.ProjectionMatrix(aspectRatio) * Matrix44::Translate(xPosition, 0.0f, -10.0f);
 	VkDeviceSize offset = Gfx::locUniformBufferOffset * Gfx::checkIndex;
 	void* mappedDeviceMemory = myRenderer.MapDeviceMemory(Gfx::locUniformDeviceMemory, offset, sizeof(mvp));
 	std::memcpy(mappedDeviceMemory, &mvp, sizeof(mvp));

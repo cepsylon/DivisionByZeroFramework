@@ -78,7 +78,7 @@ struct Matrix44
 		return result;
 	}
 
-	inline Vector4 operator*(const Vector4& aVector)
+	inline Vector4 operator*(const Vector4& aVector) const
 	{
 		const SIMD::Vector& X = myXAxis.myVector;
 		const SIMD::Vector& Y = myYAxis.myVector;

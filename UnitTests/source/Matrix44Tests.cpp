@@ -2,11 +2,12 @@
 
 #include "Math/Matrix44.h"
 
-#include <stdlib.h>
+namespace
+{
+	static constexpr int locStressTestCount = 10000;
+}
 
-static constexpr int locStressTestCount = 10000;
-
-TEST_CASE("Matrix44_CanMultiplyMatrices", "[Common], [Matrix44]")
+TEST_CASE("Matrix44_CanMultiplyMatrices", "[Math], [Matrix44]")
 {
 	Matrix44 matrix0{ 1.0f, 2.0f, 3.0f, 4.0f,
 										5.0f, 6.0f, 7.0f, 8.0f,
@@ -40,7 +41,7 @@ TEST_CASE("Matrix44_CanMultiplyMatrices", "[Common], [Matrix44]")
 	REQUIRE(result.myPosition.w == Approx(1528.0f));
 }
 
-TEST_CASE("Matrix44_CanMultiplyMatrices_StressTest", "[Common], [Matrix44], [StressTest]")
+TEST_CASE("Matrix44_CanMultiplyMatrices_StressTest", "[Math], [Matrix44], [StressTest]")
 {
 	for (int i = 0; i < locStressTestCount; ++i)
 	{
@@ -122,7 +123,7 @@ TEST_CASE("Matrix44_CanMultiplyMatrices_StressTest", "[Common], [Matrix44], [Str
 	}
 }
 
-TEST_CASE("Matrix44_CanMultiplyWithVector", "[Common], [Matrix44]")
+TEST_CASE("Matrix44_CanMultiplyWithVector", "[Math], [Matrix44]")
 {
 	Matrix44 matrix{ 1.0f, 2.0f, 3.0f, 4.0f,
 									 5.0f, 6.0f, 7.0f, 8.0f,
@@ -138,7 +139,7 @@ TEST_CASE("Matrix44_CanMultiplyWithVector", "[Common], [Matrix44]")
 	REQUIRE(result.w == Approx(760.0f));
 }
 
-TEST_CASE("Matrix44_CanMultiplyWithVector_StressTest", "[Common], [Matrix44], [StressTest]")
+TEST_CASE("Matrix44_CanMultiplyWithVector_StressTest", "[Math], [Matrix44], [StressTest]")
 {
 	for (int i = 0; i < locStressTestCount; ++i)
 	{

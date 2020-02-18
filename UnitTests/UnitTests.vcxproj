@@ -145,6 +145,7 @@
     <ClCompile Include="source\Matrix44Tests.cpp" />
     <ClCompile Include="source\SIMDVectorTests.cpp" />
     <ClCompile Include="source\UnitTestsMain.cpp" />
+    <ClCompile Include="source\Vector3Tests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="extern\include\catch\catch.hpp" />

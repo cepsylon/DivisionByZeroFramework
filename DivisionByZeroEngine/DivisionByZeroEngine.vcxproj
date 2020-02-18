@@ -182,6 +182,8 @@
     <ClInclude Include="source\Application\Application.h" />
     <ClInclude Include="source\Common\Callback.h" />
     <ClInclude Include="source\Math\Matrix44.h" />
+    <ClInclude Include="source\Math\Quaternion.h" />
+    <ClInclude Include="source\Math\Vector3.h" />
     <ClInclude Include="source\Platform\PlatformDefines.h" />
     <ClInclude Include="source\Platform\PlatformIncludes.h" />
     <ClInclude Include="source\Platform\PlatformSpecific.h" />
