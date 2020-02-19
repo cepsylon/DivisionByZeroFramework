@@ -2,7 +2,7 @@
 
 #include "Window/WindowClass.h"
 #include "Window/Window.h"
-#include "Renderer/Renderer.h"
+#include "VulkanWrapper/VulkanWrapper.h"
 
 class Application
 {
@@ -23,7 +23,7 @@ private:
 
 	WindowClass myWindowClass;
 	Window myMainWindow;
-	Renderer myRenderer;
+	VulkanWrapper myVulkanWrapper;
 };
 
 Application & App();

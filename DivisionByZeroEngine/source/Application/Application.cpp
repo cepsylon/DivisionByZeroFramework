@@ -8,7 +8,6 @@
 #include "Window/WindowClass.h"
 #include "Window/Window.h"
 
-#include "Renderer/VulkanWrapper.h"
 #include "Renderer/Camera.h"
 
 #include "Utils/Debug.h"
@@ -60,15 +59,15 @@ void Application::Initialize()
 	myMainWindow.GetWindowPaintCallbacks().Add(*this, &Application::WindowPaint);
 
 	// Create Renderer for initialization of Instace, Surface, Device and Swapchain
-	myRenderer = Renderer::Create(myMainWindow.GetWindowHandle(), Gfx::ImageCount);
+	VulkanWrapper::Create(myMainWindow.GetWindowHandle(), Gfx::ImageCount, myVulkanWrapper);
 
 	// Get images from the swapchain
-	uint32_t swapchainImageCount = myRenderer.GetSwapchainImageCount();
+	uint32_t swapchainImageCount = myVulkanWrapper.GetSwapchainImageCount();
 	std::vector<Image> swapchainImages(swapchainImageCount);
-	myRenderer.GetSwapchainImages(swapchainImages.data());
+	myVulkanWrapper.GetSwapchainImages(swapchainImages.data());
 	
 	// Create ImageViews for later generation of the back framebuffers
-	VkFormat swapchainFormat = myRenderer.GetSwapchainFormat();
+	VkFormat swapchainFormat = myVulkanWrapper.GetSwapchainFormat();
 	for (uint32_t i = 0; i < swapchainImageCount; ++i)
 	{
 		VkImageViewCreateInfo imageViewCreateInfo =
@@ -94,7 +93,7 @@ void Application::Initialize()
 			}
 		};
 
-		myRenderer.Create(imageViewCreateInfo, Gfx::locSwapchainImageViews[i]);
+		myVulkanWrapper.Create(imageViewCreateInfo, Gfx::locSwapchainImageViews[i]);
 	}
 	
 	// Create render pass
@@ -155,7 +154,7 @@ void Application::Initialize()
 		&attachmentDependency
 	};
 	
-	myRenderer.Create(renderPassCreateInfo, Gfx::locRenderPass);
+	myVulkanWrapper.Create(renderPassCreateInfo, Gfx::locRenderPass);
 	
 	// Create framebuffers for the render pass
 	VkFramebufferCreateInfo framebufferCreateInfo
@@ -174,7 +173,7 @@ void Application::Initialize()
 	for (uint32_t i = 0; i < swapchainImageCount; ++i)
 	{
 		framebufferCreateInfo.pAttachments = Unwrap(&Gfx::locSwapchainImageViews[i]);
-		myRenderer.Create(framebufferCreateInfo, Gfx::locFramebuffers[i]);
+		myVulkanWrapper.Create(framebufferCreateInfo, Gfx::locFramebuffers[i]);
 	}
 	
 	// Create command pool
@@ -183,10 +182,10 @@ void Application::Initialize()
 		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		nullptr,
 		VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-		myRenderer.GetGraphicsQueueFamilyIndex()
+		myVulkanWrapper.GetGraphicsQueueFamilyIndex()
 	};
 	
-	myRenderer.Create(commandPoolCreateInfo, Gfx::locCommandPool);
+	myVulkanWrapper.Create(commandPoolCreateInfo, Gfx::locCommandPool);
 	
 	// Create command buffers
 	VkCommandBufferAllocateInfo commandBufferCreateInfo
@@ -198,7 +197,7 @@ void Application::Initialize()
 		Gfx::ImageCount
 	};
 	
-	myRenderer.Create(commandBufferCreateInfo, Gfx::locCommandBuffers);
+	myVulkanWrapper.Create(commandBufferCreateInfo, Gfx::locCommandBuffers);
 	
 	// Create acquire semaphores
 	VkSemaphoreCreateInfo semaphoreCreateInfo
@@ -209,7 +208,7 @@ void Application::Initialize()
 	};
 	
 	for (uint32_t i = 0; i < Gfx::MaxConcurrentImages; ++i)
-		myRenderer.Create(semaphoreCreateInfo, Gfx::locAcquireSemaphores[i]);
+		myVulkanWrapper.Create(semaphoreCreateInfo, Gfx::locAcquireSemaphores[i]);
 	
 	// Create fences for synchronization and throttle if needed
 	VkFenceCreateInfo fenceCreateInfo
@@ -220,7 +219,7 @@ void Application::Initialize()
 	};
 	
 	for (uint32_t i = 0; i < Gfx::MaxConcurrentImages; ++i)
-		myRenderer.Create(fenceCreateInfo, Gfx::locFences[i]);
+		myVulkanWrapper.Create(fenceCreateInfo, Gfx::locFences[i]);
 	
 	// Create shaders
 	std::ifstream file{ "basic_vert.spv", std::ios::binary | std::ios::ate };
@@ -240,7 +239,7 @@ void Application::Initialize()
 		reinterpret_cast<uint32_t*>(fileData.data())
 	};
 	
-	myRenderer.Create(shaderCreateInfo, Gfx::locVertexShader);
+	myVulkanWrapper.Create(shaderCreateInfo, Gfx::locVertexShader);
 
 	file = std::ifstream{ "basic_frag.spv", std::ios::binary | std::ios::ate };
 	if (file.is_open() == false)
@@ -252,7 +251,7 @@ void Application::Initialize()
 	shaderCreateInfo.codeSize = fileData.size();
 	shaderCreateInfo.pCode = reinterpret_cast<uint32_t*>(fileData.data());
 
-	myRenderer.Create(shaderCreateInfo, Gfx::locFragmentShader);
+	myVulkanWrapper.Create(shaderCreateInfo, Gfx::locFragmentShader);
 
 	// Create descriptors for pipeline layout
 	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding
@@ -270,7 +269,7 @@ void Application::Initialize()
 		1,
 		&descriptorSetLayoutBinding
 	};
-	myRenderer.Create(descriptorSetLayoutCreateInfo, Gfx::locDescriptorSetLayout);
+	myVulkanWrapper.Create(descriptorSetLayoutCreateInfo, Gfx::locDescriptorSetLayout);
 
 	// Create pipeline layout
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo
@@ -283,7 +282,7 @@ void Application::Initialize()
 		0,
 		nullptr
 	};
-	myRenderer.Create(pipelineLayoutCreateInfo, Gfx::locPipelineLayout);
+	myVulkanWrapper.Create(pipelineLayoutCreateInfo, Gfx::locPipelineLayout);
 
 	// Create pipeline
 	VkPipelineShaderStageCreateInfo pipelineShaderStageInfo[2] =
@@ -481,7 +480,7 @@ void Application::Initialize()
 		VK_NULL_HANDLE,
 		0
 	};
-	myRenderer.Create(&graphicsPipelineCreateInfo, &Gfx::locGraphicsPipeline, 1);
+	myVulkanWrapper.Create(&graphicsPipelineCreateInfo, &Gfx::locGraphicsPipeline, 1);
 
 	// VULKAN SPACE: X to the right, Y downwards, Z forward
 	// Vertex buffer
@@ -493,7 +492,7 @@ void Application::Initialize()
 		0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 	};
 
-	uint32_t familyQueue = myRenderer.GetGraphicsQueueFamilyIndex();
+	uint32_t familyQueue = myVulkanWrapper.GetGraphicsQueueFamilyIndex();
 	VkBufferCreateInfo bufferCreateInfo
 	{
 		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -506,24 +505,24 @@ void Application::Initialize()
 		&familyQueue
 	};
 
-	myRenderer.Create(bufferCreateInfo, Gfx::locBuffer);
+	myVulkanWrapper.Create(bufferCreateInfo, Gfx::locBuffer);
 
 	VkMemoryRequirements vertexBufferMemoryRequirements;
-	myRenderer.GetMemoryRequirements(Gfx::locBuffer, vertexBufferMemoryRequirements);
+	myVulkanWrapper.GetMemoryRequirements(Gfx::locBuffer, vertexBufferMemoryRequirements);
 
 	// Allocate memory to associate to vertex buffer
 	VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-	myRenderer.AllocateDeviceMemory(vertexBufferMemoryRequirements.size, vertexBufferMemoryRequirements.memoryTypeBits, memoryPropertyFlags, Gfx::locDeviceMemory);
-	myRenderer.BindDeviceMemory(Gfx::locDeviceMemory, 0, Gfx::locBuffer);
+	myVulkanWrapper.AllocateDeviceMemory(vertexBufferMemoryRequirements.size, vertexBufferMemoryRequirements.memoryTypeBits, memoryPropertyFlags, Gfx::locDeviceMemory);
+	myVulkanWrapper.BindDeviceMemory(Gfx::locDeviceMemory, 0, Gfx::locBuffer);
 
 	// Map memory
-	void* mappedDeviceMemory = myRenderer.MapDeviceMemory(Gfx::locDeviceMemory, 0, sizeof(vertexBufferData));
+	void* mappedDeviceMemory = myVulkanWrapper.MapDeviceMemory(Gfx::locDeviceMemory, 0, sizeof(vertexBufferData));
 
 	// Copy data
 	std::memcpy(mappedDeviceMemory, vertexBufferData, sizeof(vertexBufferData));
 
 	// Unmap and flush
-	myRenderer.UnmapDeviceMemory(Gfx::locDeviceMemory);
+	myVulkanWrapper.UnmapDeviceMemory(Gfx::locDeviceMemory);
 
 	// Create uniform buffer
 	float aspectRatio = static_cast<float>(myMainWindow.GetClientWidth()) / static_cast<float>(myMainWindow.GetClientHeight());
@@ -533,21 +532,21 @@ void Application::Initialize()
 	bufferCreateInfo.size = sizeof(mvp);
 
 	for (uint32_t i = 0; i < Gfx::MaxConcurrentImages; ++i)
-		myRenderer.Create(bufferCreateInfo, Gfx::locUniformBuffer[i]);
+		myVulkanWrapper.Create(bufferCreateInfo, Gfx::locUniformBuffer[i]);
 
 	// Allocate uniform buffers memory
 	VkMemoryRequirements uniformBufferMemoryRequirements;
-	myRenderer.GetMemoryRequirements(Gfx::locUniformBuffer[0], uniformBufferMemoryRequirements);
-	myRenderer.AllocateDeviceMemory(uniformBufferMemoryRequirements.size * Gfx::MaxConcurrentImages, uniformBufferMemoryRequirements.memoryTypeBits, memoryPropertyFlags, Gfx::locUniformDeviceMemory);
+	myVulkanWrapper.GetMemoryRequirements(Gfx::locUniformBuffer[0], uniformBufferMemoryRequirements);
+	myVulkanWrapper.AllocateDeviceMemory(uniformBufferMemoryRequirements.size * Gfx::MaxConcurrentImages, uniformBufferMemoryRequirements.memoryTypeBits, memoryPropertyFlags, Gfx::locUniformDeviceMemory);
 	Gfx::locUniformBufferOffset = uniformBufferMemoryRequirements.size;
 
 	for (uint32_t i = 0; i < Gfx::MaxConcurrentImages; ++i)
 	{
 		VkDeviceSize offset = Gfx::locUniformBufferOffset * i;
-		myRenderer.BindDeviceMemory(Gfx::locUniformDeviceMemory, offset, Gfx::locUniformBuffer[i]);
-		mappedDeviceMemory = myRenderer.MapDeviceMemory(Gfx::locUniformDeviceMemory, offset, sizeof(mvp));
+		myVulkanWrapper.BindDeviceMemory(Gfx::locUniformDeviceMemory, offset, Gfx::locUniformBuffer[i]);
+		mappedDeviceMemory = myVulkanWrapper.MapDeviceMemory(Gfx::locUniformDeviceMemory, offset, sizeof(mvp));
 		std::memcpy(mappedDeviceMemory, &mvp, sizeof(mvp));
-		myRenderer.UnmapDeviceMemory(Gfx::locUniformDeviceMemory);
+		myVulkanWrapper.UnmapDeviceMemory(Gfx::locUniformDeviceMemory);
 	}
 
 	// Descriptor pool and sets
@@ -565,7 +564,7 @@ void Application::Initialize()
 		1,
 		&descriptorPoolSize
 	};
-	myRenderer.Create(descriptorPoolCreateInfo, Gfx::locDescriptorPool);
+	myVulkanWrapper.Create(descriptorPoolCreateInfo, Gfx::locDescriptorPool);
 
 	for (uint32_t i = 0; i < Gfx::MaxConcurrentImages; ++i)
 	{
@@ -577,7 +576,7 @@ void Application::Initialize()
 			1,
 			Unwrap(&Gfx::locDescriptorSetLayout)
 		};
-		myRenderer.Create(descriptorSetAllocateInfo, &Gfx::locDescriptorSet[i]);
+		myVulkanWrapper.Create(descriptorSetAllocateInfo, &Gfx::locDescriptorSet[i]);
 
 		// Prepare descriptor
 		VkDescriptorBufferInfo descriptorBufferInfo
@@ -599,7 +598,7 @@ void Application::Initialize()
 			&descriptorBufferInfo,
 			nullptr
 		};
-		myRenderer.UpdateDescriptorSets(&writeDescriptorSet, 1);
+		myVulkanWrapper.UpdateDescriptorSets(&writeDescriptorSet, 1);
 	}
 }
 
@@ -615,36 +614,36 @@ void Application::Run()
 void Application::Shutdown()
 {
 	// Wait for device to finish before deleting anything
-	myRenderer.WaitForDevice();
+	myVulkanWrapper.WaitForDevice();
 
 	// Destroy all resources
-	myRenderer.Destroy(Gfx::locDescriptorPool, Gfx::locDescriptorSet, Gfx::MaxConcurrentImages);
-	myRenderer.Destroy(Gfx::locDescriptorPool);
-	myRenderer.FreeDeviceMemory(Gfx::locUniformDeviceMemory);
+	myVulkanWrapper.Destroy(Gfx::locDescriptorPool, Gfx::locDescriptorSet, Gfx::MaxConcurrentImages);
+	myVulkanWrapper.Destroy(Gfx::locDescriptorPool);
+	myVulkanWrapper.FreeDeviceMemory(Gfx::locUniformDeviceMemory);
 	for (uint32_t i = 0; i < Gfx::MaxConcurrentImages; ++i)
-		myRenderer.Destroy(Gfx::locUniformBuffer[i]);
-	myRenderer.FreeDeviceMemory(Gfx::locDeviceMemory);
-	myRenderer.Destroy(Gfx::locBuffer);
-	myRenderer.Destroy(Gfx::locGraphicsPipeline);
-	myRenderer.Destroy(Gfx::locPipelineLayout);
-	myRenderer.Destroy(Gfx::locDescriptorSetLayout);
-	myRenderer.Destroy(Gfx::locFragmentShader);
-	myRenderer.Destroy(Gfx::locVertexShader);
+		myVulkanWrapper.Destroy(Gfx::locUniformBuffer[i]);
+	myVulkanWrapper.FreeDeviceMemory(Gfx::locDeviceMemory);
+	myVulkanWrapper.Destroy(Gfx::locBuffer);
+	myVulkanWrapper.Destroy(Gfx::locGraphicsPipeline);
+	myVulkanWrapper.Destroy(Gfx::locPipelineLayout);
+	myVulkanWrapper.Destroy(Gfx::locDescriptorSetLayout);
+	myVulkanWrapper.Destroy(Gfx::locFragmentShader);
+	myVulkanWrapper.Destroy(Gfx::locVertexShader);
 	for (uint32_t i = 0; i < Gfx::MaxConcurrentImages; ++i)
 	{
-		myRenderer.Destroy(Gfx::locAcquireSemaphores[i]);
-		myRenderer.Destroy(Gfx::locFences[i]);
+		myVulkanWrapper.Destroy(Gfx::locAcquireSemaphores[i]);
+		myVulkanWrapper.Destroy(Gfx::locFences[i]);
 	}
-	myRenderer.Destroy(Gfx::locCommandPool, Gfx::locCommandBuffers, Gfx::ImageCount);
-	myRenderer.Destroy(Gfx::locCommandPool);
+	myVulkanWrapper.Destroy(Gfx::locCommandPool, Gfx::locCommandBuffers, Gfx::ImageCount);
+	myVulkanWrapper.Destroy(Gfx::locCommandPool);
 	for (uint32_t i = 0; i < Gfx::ImageCount; ++i)
-		myRenderer.Destroy(Gfx::locFramebuffers[i]);
+		myVulkanWrapper.Destroy(Gfx::locFramebuffers[i]);
 	for(uint32_t i = 0; i < Gfx::ImageCount; ++i)
-		myRenderer.Destroy(Gfx::locSwapchainImageViews[i]);
-	myRenderer.Destroy(Gfx::locRenderPass);
+		myVulkanWrapper.Destroy(Gfx::locSwapchainImageViews[i]);
+	myVulkanWrapper.Destroy(Gfx::locRenderPass);
 
 	// Release memory
-	Renderer::Destroy(myRenderer);
+	VulkanWrapper::Destroy(myVulkanWrapper);
 	Window::Destroy(myMainWindow);
 	WindowClass::Destroy(myWindowClass);
 }
@@ -652,23 +651,23 @@ void Application::Shutdown()
 void Application::WindowResize(uint32_t aWidth, uint32_t aHeight)
 {
 	// Wait for device and destroy Swapchain specific resources
-	myRenderer.WaitForDevice();
-	uint32_t swapchainImageCount = myRenderer.GetSwapchainImageCount();
+	myVulkanWrapper.WaitForDevice();
+	uint32_t swapchainImageCount = myVulkanWrapper.GetSwapchainImageCount();
 	for (uint32_t i = 0; i < swapchainImageCount; ++i)
 	{
-		myRenderer.Destroy(Gfx::locSwapchainImageViews[i]);
-		myRenderer.Destroy(Gfx::locFramebuffers[i]);
+		myVulkanWrapper.Destroy(Gfx::locSwapchainImageViews[i]);
+		myVulkanWrapper.Destroy(Gfx::locFramebuffers[i]);
 	}
-	myRenderer.ResizeSwapchain(aWidth, aHeight);
+	myVulkanWrapper.ResizeSwapchain(aWidth, aHeight);
 
 	// Create resources again
 	// Get images from the swapchain
-	swapchainImageCount = myRenderer.GetSwapchainImageCount();
+	swapchainImageCount = myVulkanWrapper.GetSwapchainImageCount();
 	std::vector<Image> swapchainImages(swapchainImageCount);
-	myRenderer.GetSwapchainImages(swapchainImages.data());
+	myVulkanWrapper.GetSwapchainImages(swapchainImages.data());
 
 	// Create ImageViews for later generation of the back framebuffers
-	VkFormat swapchainFormat = myRenderer.GetSwapchainFormat();
+	VkFormat swapchainFormat = myVulkanWrapper.GetSwapchainFormat();
 	for (uint32_t i = 0; i < swapchainImageCount; ++i)
 	{
 		VkImageViewCreateInfo imageViewCreateInfo =
@@ -694,7 +693,7 @@ void Application::WindowResize(uint32_t aWidth, uint32_t aHeight)
 			}
 		};
 
-		myRenderer.Create(imageViewCreateInfo, Gfx::locSwapchainImageViews[i]);
+		myVulkanWrapper.Create(imageViewCreateInfo, Gfx::locSwapchainImageViews[i]);
 	}
 
 
@@ -715,7 +714,7 @@ void Application::WindowResize(uint32_t aWidth, uint32_t aHeight)
 	for (uint32_t i = 0; i < swapchainImageCount; ++i)
 	{
 		framebufferCreateInfo.pAttachments = Unwrap(&Gfx::locSwapchainImageViews[i]);
-		myRenderer.Create(framebufferCreateInfo, Gfx::locFramebuffers[i]);
+		myVulkanWrapper.Create(framebufferCreateInfo, Gfx::locFramebuffers[i]);
 	}
 }
 
@@ -725,10 +724,10 @@ void Application::WindowPaint()
 	Fence& fence = Gfx::locFences[Gfx::checkIndex];
 
 	// Ensure no more than Gfx::MaxConcurrentImages are being drawn
-	myRenderer.WaitForFences(&fence, 1);
-	myRenderer.ResetFences(&fence, 1);
+	myVulkanWrapper.WaitForFences(&fence, 1);
+	myVulkanWrapper.ResetFences(&fence, 1);
 
-	Gfx::frameIndex = myRenderer.AcquireNextImage(Gfx::locAcquireSemaphores[Gfx::checkIndex]);
+	Gfx::frameIndex = myVulkanWrapper.AcquireNextImage(Gfx::locAcquireSemaphores[Gfx::checkIndex]);
 
 	// Update uniform buffer
 	static float xPosition = 0.0f;
@@ -740,9 +739,9 @@ void Application::WindowPaint()
 	Matrix44 orientationMatrix = orientation.GetMatrix();
 	Matrix44 mvp = Gfx::locCamera.ProjectionMatrix(aspectRatio) * Matrix44::Translate(xPosition, 0.0f, -10.0f) * orientationMatrix;
 	VkDeviceSize offset = Gfx::locUniformBufferOffset * Gfx::checkIndex;
-	void* mappedDeviceMemory = myRenderer.MapDeviceMemory(Gfx::locUniformDeviceMemory, offset, sizeof(mvp));
+	void* mappedDeviceMemory = myVulkanWrapper.MapDeviceMemory(Gfx::locUniformDeviceMemory, offset, sizeof(mvp));
 	std::memcpy(mappedDeviceMemory, &mvp, sizeof(mvp));
-	myRenderer.UnmapDeviceMemory(Gfx::locUniformDeviceMemory);
+	myVulkanWrapper.UnmapDeviceMemory(Gfx::locUniformDeviceMemory);
 
 	CommandBuffer& cmd = Gfx::locCommandBuffers[Gfx::frameIndex];
 	Framebuffer& framebuffer = Gfx::locFramebuffers[Gfx::frameIndex];
@@ -756,7 +755,7 @@ void Application::WindowPaint()
 		nullptr
 	};
 
-	myRenderer.BeginCommandBuffer(cmd, beginInfo);
+	myVulkanWrapper.BeginCommandBuffer(cmd, beginInfo);
 
 	// Start render pass
 	unsigned width = myMainWindow.GetClientWidth();
@@ -773,10 +772,10 @@ void Application::WindowPaint()
 		1,
 		&clearColor
 	};
-	myRenderer.BeginRenderPass(cmd, renderPassBeginInfo);
+	myVulkanWrapper.BeginRenderPass(cmd, renderPassBeginInfo);
 
 	// Bind pipeline
-	myRenderer.BindPipeline(cmd, Gfx::locGraphicsPipeline, true);
+	myVulkanWrapper.BindPipeline(cmd, Gfx::locGraphicsPipeline, true);
 
 	VkViewport viewport;
 	memset(&viewport, 0, sizeof(viewport));
@@ -784,7 +783,7 @@ void Application::WindowPaint()
 	viewport.height = static_cast<float>(height);
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
-	myRenderer.SetViewport(cmd, &viewport, 1, 0);
+	myVulkanWrapper.SetViewport(cmd, &viewport, 1, 0);
 
 	VkRect2D scissor;
 	memset(&scissor, 0, sizeof(scissor));
@@ -792,16 +791,16 @@ void Application::WindowPaint()
 	scissor.extent.height = height;
 	scissor.offset.x = 0;
 	scissor.offset.y = 0;
-	myRenderer.SetScissor(cmd, &scissor, 1, 0);
+	myVulkanWrapper.SetScissor(cmd, &scissor, 1, 0);
 
 	// Draw
-	myRenderer.BindDescriptorSets(cmd, Gfx::locPipelineLayout, &Gfx::locDescriptorSet[Gfx::checkIndex], 1);
+	myVulkanWrapper.BindDescriptorSets(cmd, Gfx::locPipelineLayout, &Gfx::locDescriptorSet[Gfx::checkIndex], 1);
 	VkDeviceSize vertexBufferOffset = 0u;
-	myRenderer.BindVertexBuffers(cmd, &Gfx::locBuffer, &vertexBufferOffset, 1);
-	myRenderer.Draw(cmd, 4, 0, 1, 0);
+	myVulkanWrapper.BindVertexBuffers(cmd, &Gfx::locBuffer, &vertexBufferOffset, 1);
+	myVulkanWrapper.Draw(cmd, 4, 0, 1, 0);
 
-	myRenderer.EndRenderPass(cmd);
-	myRenderer.EndCommandBuffer(cmd);
+	myVulkanWrapper.EndRenderPass(cmd);
+	myVulkanWrapper.EndCommandBuffer(cmd);
 
 	VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	VkSubmitInfo submitInfo;
@@ -815,8 +814,8 @@ void Application::WindowPaint()
 	submitInfo.signalSemaphoreCount = 0;
 	submitInfo.pSignalSemaphores = nullptr;
 
-	myRenderer.Submit(&submitInfo, 1, fence);
-	myRenderer.Present(nullptr, 0, Gfx::frameIndex);
+	myVulkanWrapper.Submit(&submitInfo, 1, fence);
+	myVulkanWrapper.Present(nullptr, 0, Gfx::frameIndex);
 
 	// Update values for next frame
 	Gfx::currentFrame++;
