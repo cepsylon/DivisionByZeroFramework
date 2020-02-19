@@ -1,8 +1,9 @@
 #include "Application.h"
 
+#include "Math/MathCommon.h"
 #include "Math/Vector4.h"
 #include "Math/Matrix44.h"
-#include "Math/MathCommon.h"
+#include "Math/Quaternion.h"
 
 #include "Window/WindowClass.h"
 #include "Window/Window.h"
@@ -731,10 +732,13 @@ void Application::WindowPaint()
 
 	// Update uniform buffer
 	static float xPosition = 0.0f;
+	static Quaternion orientation;
 	xPosition += 0.08f;
 	xPosition = xPosition < 5.0f ? xPosition : -5.0f;
 	float aspectRatio = static_cast<float>(myMainWindow.GetClientWidth()) / static_cast<float>(myMainWindow.GetClientHeight());
-	Matrix44 mvp = Gfx::locCamera.ProjectionMatrix(aspectRatio) * Matrix44::Translate(xPosition, 0.0f, -10.0f);
+	orientation = orientation * Quaternion{ Vector3{0.0f, 0.0f, 1.0f}, Math::Degree(1.0f) };
+	Matrix44 orientationMatrix = orientation.GetMatrix();
+	Matrix44 mvp = Gfx::locCamera.ProjectionMatrix(aspectRatio) * Matrix44::Translate(xPosition, 0.0f, -10.0f) * orientationMatrix;
 	VkDeviceSize offset = Gfx::locUniformBufferOffset * Gfx::checkIndex;
 	void* mappedDeviceMemory = myRenderer.MapDeviceMemory(Gfx::locUniformDeviceMemory, offset, sizeof(mvp));
 	std::memcpy(mappedDeviceMemory, &mvp, sizeof(mvp));

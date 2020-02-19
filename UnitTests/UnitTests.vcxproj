@@ -143,6 +143,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\Matrix44Tests.cpp" />
+    <ClCompile Include="source\QuaternionTests.cpp" />
     <ClCompile Include="source\SIMDVectorTests.cpp" />
     <ClCompile Include="source\UnitTestsMain.cpp" />
     <ClCompile Include="source\Vector3Tests.cpp" />

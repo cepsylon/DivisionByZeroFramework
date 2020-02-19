@@ -24,6 +24,11 @@ namespace Math
 			: myValue(DegreeToRadian(aDegree))
 		{ }
 
+		inline Radian operator*(float aScalar) const { return Radian{ myValue * aScalar }; }
+		inline friend Radian operator*(float aScalar, const Radian& aDegree) { return aDegree * aScalar; }
+		inline Radian operator/(float aScalar) const { return Radian{ myValue / aScalar }; }
+		inline friend Radian operator/(float aScalar, const Radian& aDegree) { return aDegree * aScalar; }
+
 		inline float ToDegree() const { return RadianToDegree(myValue); }
 
 		float myValue;
@@ -38,6 +43,11 @@ namespace Math
 		inline explicit Degree(const Radian& aRadian)
 			: myValue(RadianToDegree(aRadian))
 		{ }
+
+		inline Degree operator*(float aScalar) const { return Degree{ myValue * aScalar }; }
+		inline friend Degree operator*(float aScalar, const Degree& aDegree) { return aDegree * aScalar; }
+		inline Degree operator/(float aScalar) const { return Degree{ myValue / aScalar }; }
+		inline friend Degree operator/(float aScalar, const Degree& aDegree) { return aDegree * aScalar; }
 
 		inline float ToRadian() const { return DegreeToRadian(myValue); }
 

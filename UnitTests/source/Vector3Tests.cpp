@@ -34,6 +34,16 @@ TEST_CASE("Vector3_CanBeConstructedWithSingleValue", "[Math], [Vector3]")
 	REQUIRE(vector.z == Approx(2.0f));
 }
 
+TEST_CASE("Vector3_CanBeNegated", "[Math], [Vector3]")
+{
+	Vector3 vector{ 1.0f, 2.0f, 3.0f };
+	Vector3 result = -vector;
+
+	REQUIRE(result.x == -vector.x);
+	REQUIRE(result.y == -vector.y);
+	REQUIRE(result.z == -vector.z);
+}
+
 TEST_CASE("Vector3_CanAddVectors", "[Math], [Vector3]")
 {
 	Vector3 vector0{ 1.0f, 2.0f, 3.0f };
@@ -140,5 +150,36 @@ TEST_CASE("Vector3_CanMultiplyVectorByScalar_StressTest", "[Math], [Vector3], [S
 		REQUIRE(result0.x == Approx(result1.x));
 		REQUIRE(result0.y == Approx(result1.y));
 		REQUIRE(result0.z == Approx(result1.z));
+	}
+}
+
+TEST_CASE("Vector3_CanDivideVectorByScalar", "[Math], [Vector3]")
+{
+	Vector3 vector{ 1.0f, 2.0f, 3.0f };
+	float scalar = 4.0f;
+
+	Vector3 result = vector / scalar;
+
+	REQUIRE(result.x == Approx(0.25f));
+	REQUIRE(result.y == Approx(0.5f));
+	REQUIRE(result.z == Approx(0.75f));
+}
+
+TEST_CASE("Vector3_CanDivideVectorByScalar_StressTest", "[Math], [Vector3], [StressTest]")
+{
+	for (int i = 0; i < locStressTestCount; ++i)
+	{
+		float x = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+		float y = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+		float z = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+		float scalar = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+
+		Vector3 vector{ x, y, z };
+
+		Vector3 result = vector / scalar;
+
+		REQUIRE(result.x == Approx(x / scalar));
+		REQUIRE(result.y == Approx(y / scalar));
+		REQUIRE(result.z == Approx(z / scalar));
 	}
 }
