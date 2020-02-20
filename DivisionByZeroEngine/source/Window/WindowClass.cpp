@@ -31,6 +31,14 @@ namespace
 			if (locUpdatingWindow)
 				locUpdatingWindow->GetWindowPaintCallbacks()();
 			break;
+		case WM_KEYDOWN:
+			if (locUpdatingWindow && wParam < 256)
+				locUpdatingWindow->GetWindowKeyDownCallbacks()(static_cast<unsigned char>(wParam));
+			break;
+		case WM_KEYUP:
+			if (locUpdatingWindow && wParam < 256)
+				locUpdatingWindow->GetWindowKeyUpCallbacks()(static_cast<unsigned char>(wParam));
+			break;
 		}
 
 		// Default message handling

@@ -1,7 +1,6 @@
 #include "VulkanWrapper.h"
 
 #include "VulkanModule.h"
-#include "VulkanModuleDebug.h"
 #include "VulkanWrapper.h"
 
 #include "Platform/PlatformSpecific.h"

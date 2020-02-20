@@ -33,6 +33,10 @@ public:
 	const Callback<uint32_t, uint32_t>& GetWindowResizeCallbacks() const { return myWindowResizeCallbacks; }
 	Callback<>& GetWindowPaintCallbacks() { return myWindowPaintCallbacks; }
 	const Callback<>& GetWindowPaintCallbacks() const { return myWindowPaintCallbacks; }
+	Callback<unsigned char>& GetWindowKeyDownCallbacks() { return myWindowKeyDownCallbacks; }
+	const Callback<unsigned char>& GetWindowKeyDownCallbacks() const { return myWindowKeyDownCallbacks; }
+	Callback<unsigned char>& GetWindowKeyUpCallbacks() { return myWindowKeyUpCallbacks; }
+	const Callback<unsigned char>& GetWindowKeyUpCallbacks() const { return myWindowKeyUpCallbacks; }
 	Handle GetWindowHandle() { return myWindowHandle; }
 	int GetX() const { return myX; }
 	int GetY() const { return myY; }
@@ -48,6 +52,8 @@ private:
 
 	Callback<uint32_t, uint32_t> myWindowResizeCallbacks;
 	Callback<> myWindowPaintCallbacks;
+	Callback<unsigned char> myWindowKeyDownCallbacks;
+	Callback<unsigned char> myWindowKeyUpCallbacks;
 	Handle myWindowHandle;
 	const WindowClass* myWindowClass;
 	const char* myName;

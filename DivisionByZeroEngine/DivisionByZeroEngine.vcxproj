@@ -168,9 +168,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\Application\Application.cpp" />
+    <ClCompile Include="source\Input\Input.cpp" />
     <ClCompile Include="source\Platform\PlatformSpecific.cpp" />
     <ClCompile Include="source\main_win32.cpp" />
     <ClCompile Include="source\Renderer\Camera.cpp" />
+    <ClCompile Include="source\Renderer\Renderer.cpp" />
     <ClCompile Include="source\VulkanWrapper\VulkanWrapper.cpp" />
     <ClCompile Include="source\VulkanWrapper\VulkanDispatchTable.cpp" />
     <ClCompile Include="source\VulkanWrapper\VulkanModule.cpp" />
@@ -181,6 +183,7 @@
   <ItemGroup>
     <ClInclude Include="source\Application\Application.h" />
     <ClInclude Include="source\Common\Callback.h" />
+    <ClInclude Include="source\Input\Input.h" />
     <ClInclude Include="source\Math\Matrix44.h" />
     <ClInclude Include="source\Math\Quaternion.h" />
     <ClInclude Include="source\Math\Vector3.h" />
@@ -192,9 +195,9 @@
     <ClInclude Include="source\Math\Vector2.h" />
     <ClInclude Include="source\Math\Vector4.h" />
     <ClInclude Include="source\Renderer\Camera.h" />
+    <ClInclude Include="source\Renderer\Renderer.h" />
     <ClInclude Include="source\VulkanWrapper\VulkanDispatchTable.h" />
     <ClInclude Include="source\VulkanWrapper\VulkanModule.h" />
-    <ClInclude Include="source\VulkanWrapper\VulkanModuleDebug.h" />
     <ClInclude Include="source\VulkanWrapper\VulkanWrapper.h" />
     <ClInclude Include="source\Utils\Debug.h" />
     <ClInclude Include="source\Window\Window.h" />

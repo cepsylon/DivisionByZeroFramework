@@ -57,6 +57,8 @@ void Application::Initialize()
 	Window::Create(myWindowClass, 0, 0, 1280u, 720u, "DivisionByZeroEngine", myMainWindow);
 	myMainWindow.GetWindowResizeCallbacks().Add(*this, &Application::WindowResize);
 	myMainWindow.GetWindowPaintCallbacks().Add(*this, &Application::WindowPaint);
+	myMainWindow.GetWindowKeyDownCallbacks().Add(myInput, &Input::KeyPressed);
+	myMainWindow.GetWindowKeyUpCallbacks().Add(myInput, &Input::KeyReleased);
 
 	// Create Renderer for initialization of Instace, Surface, Device and Swapchain
 	VulkanWrapper::Create(myMainWindow.GetWindowHandle(), Gfx::ImageCount, myVulkanWrapper);
@@ -606,6 +608,7 @@ void Application::Run()
 {
 	while (myMainWindow.IsRunning())
 	{
+		myInput.Update();
 		myMainWindow.Update();
 		WindowPaint();
 	}
@@ -731,13 +734,23 @@ void Application::WindowPaint()
 
 	// Update uniform buffer
 	static float xPosition = 0.0f;
+	static float yPosition = 0.0f;
 	static Quaternion orientation;
-	xPosition += 0.08f;
-	xPosition = xPosition < 5.0f ? xPosition : -5.0f;
-	float aspectRatio = static_cast<float>(myMainWindow.GetClientWidth()) / static_cast<float>(myMainWindow.GetClientHeight());
+
+	if (myInput.IsKeyDown('W'))
+		yPosition += 0.08f;
+	if (myInput.IsKeyDown('S'))
+		yPosition -= 0.08f;
+	if (myInput.IsKeyDown('A'))
+		xPosition -= 0.08f;
+	if (myInput.IsKeyDown('D'))
+		xPosition += 0.08f;
+
 	orientation = orientation * Quaternion{ Vector3{0.0f, 0.0f, 1.0f}, Math::Degree(1.0f) };
+
 	Matrix44 orientationMatrix = orientation.GetMatrix();
-	Matrix44 mvp = Gfx::locCamera.ProjectionMatrix(aspectRatio) * Matrix44::Translate(xPosition, 0.0f, -10.0f) * orientationMatrix;
+	float aspectRatio = static_cast<float>(myMainWindow.GetClientWidth()) / static_cast<float>(myMainWindow.GetClientHeight());
+	Matrix44 mvp = Gfx::locCamera.ProjectionMatrix(aspectRatio) * Matrix44::Translate(xPosition, yPosition, -10.0f) * orientationMatrix;
 	VkDeviceSize offset = Gfx::locUniformBufferOffset * Gfx::checkIndex;
 	void* mappedDeviceMemory = myVulkanWrapper.MapDeviceMemory(Gfx::locUniformDeviceMemory, offset, sizeof(mvp));
 	std::memcpy(mappedDeviceMemory, &mvp, sizeof(mvp));
