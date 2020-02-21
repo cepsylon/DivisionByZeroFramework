@@ -2,8 +2,8 @@
 
 #include "Window/WindowClass.h"
 #include "Window/Window.h"
-#include "VulkanWrapper/VulkanWrapper.h"
 #include "Input/Input.h"
+#include "Engine/Renderer/Renderer.h"
 
 class Application
 {
@@ -24,8 +24,8 @@ private:
 
 	WindowClass myWindowClass;
 	Window myMainWindow;
-	VulkanWrapper myVulkanWrapper;
 	Input myInput;
+	DBZ::Renderer myRenderer;
 };
 
 Application & App();

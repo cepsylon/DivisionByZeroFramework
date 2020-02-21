@@ -171,8 +171,8 @@
     <ClCompile Include="source\Input\Input.cpp" />
     <ClCompile Include="source\Platform\PlatformSpecific.cpp" />
     <ClCompile Include="source\main_win32.cpp" />
-    <ClCompile Include="source\Renderer\Camera.cpp" />
-    <ClCompile Include="source\Renderer\Renderer.cpp" />
+    <ClCompile Include="source\Engine\Renderer\Camera.cpp" />
+    <ClCompile Include="source\Engine\Renderer\Renderer.cpp" />
     <ClCompile Include="source\VulkanWrapper\VulkanWrapper.cpp" />
     <ClCompile Include="source\VulkanWrapper\VulkanDispatchTable.cpp" />
     <ClCompile Include="source\VulkanWrapper\VulkanModule.cpp" />
@@ -194,8 +194,8 @@
     <ClInclude Include="source\Math\MathCommon.h" />
     <ClInclude Include="source\Math\Vector2.h" />
     <ClInclude Include="source\Math\Vector4.h" />
-    <ClInclude Include="source\Renderer\Camera.h" />
-    <ClInclude Include="source\Renderer\Renderer.h" />
+    <ClInclude Include="source\Engine\Renderer\Camera.h" />
+    <ClInclude Include="source\Engine\Renderer\Renderer.h" />
     <ClInclude Include="source\VulkanWrapper\VulkanDispatchTable.h" />
     <ClInclude Include="source\VulkanWrapper\VulkanModule.h" />
     <ClInclude Include="source\VulkanWrapper\VulkanWrapper.h" />
