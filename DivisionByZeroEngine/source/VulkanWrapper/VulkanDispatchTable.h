@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef VK_NO_PROTOTYPES
+#define VK_NO_PROTOTYPES
+#endif // VK_NO_PROTOTYPES
 #include <vulkan/vulkan_core.h>
 
 #define VULKAN_DISPATCH_FUNCTION(name) PFN_vk##name my##name = nullptr
@@ -37,6 +40,7 @@ struct VulkanInstanceDispatchTable
 	VULKAN_DISPATCH_FUNCTION(EnumerateDeviceLayerProperties);
 
 	VULKAN_DISPATCH_FUNCTION(CreateDevice);
+	VULKAN_DISPATCH_FUNCTION(DestroyDevice);
 	VULKAN_DISPATCH_FUNCTION(CreateDebugUtilsMessengerEXT);
 	VULKAN_DISPATCH_FUNCTION(DestroyDebugUtilsMessengerEXT);
 	VULKAN_DISPATCH_FUNCTION(SubmitDebugUtilsMessageEXT);
@@ -49,7 +53,6 @@ struct VulkanDeviceDispatchTable
 
 	VULKAN_DISPATCH_FUNCTION(GetDeviceProcAddr);
 
-	VULKAN_DISPATCH_FUNCTION(DestroyDevice);
 	VULKAN_DISPATCH_FUNCTION(GetDeviceQueue);
 	VULKAN_DISPATCH_FUNCTION(DeviceWaitIdle);
 	VULKAN_DISPATCH_FUNCTION(AcquireNextImageKHR);

@@ -11,10 +11,17 @@ inline const Vk##name& Unwrap(const name& aResource) { return reinterpret_cast<c
 inline const Vk##name* Unwrap(const name* aResource) { return reinterpret_cast<const Vk##name*>(aResource); } \
 inline Vk##name& Unwrap(name& aResource) { return reinterpret_cast<Vk##name&>(aResource); } \
 inline Vk##name* Unwrap(name* aResource) { return reinterpret_cast<Vk##name*>(aResource); } \
-class name { Vk##name myHandle; }
+class name { Vk##name myHandle = VK_NULL_HANDLE; }
 #endif // WRAP_VULKAN_RESOURCE
 
 // We need to wrap around the vk versions because most of them are typedefs of the same type
+WRAP_VULKAN_RESOURCE(Instance);
+WRAP_VULKAN_RESOURCE(DebugUtilsMessengerEXT);
+WRAP_VULKAN_RESOURCE(PhysicalDevice);
+WRAP_VULKAN_RESOURCE(SurfaceKHR);
+WRAP_VULKAN_RESOURCE(Device);
+WRAP_VULKAN_RESOURCE(SwapchainKHR);
+WRAP_VULKAN_RESOURCE(Queue);
 WRAP_VULKAN_RESOURCE(CommandPool);
 WRAP_VULKAN_RESOURCE(CommandBuffer);
 WRAP_VULKAN_RESOURCE(RenderPass);
@@ -37,14 +44,47 @@ WRAP_VULKAN_RESOURCE(DescriptorSet);
 
 #include "VulkanDispatchTable.h"
 
+class VulkanDeviceWrapper;
+class VulkanDisplayWrapper;
+
 // Renderer instance
 class VulkanInstanceWrapper
 {
 public:
-	// HWND for Windows
-	// Need to research other platforms
-	static void Create(VulkanInstanceWrapper& aVulkanWrapper);
-	static void Destroy(VulkanInstanceWrapper& aVulkanWrapper);
+	static void Create(VulkanInstanceWrapper& aVulkanInstanceWrapper);
+	static void Destroy(VulkanInstanceWrapper& aVulkanInstanceWrapper);
+
+	void EnumeratePhysicalDevices(uint32_t& aPhysicalDeviceCount, PhysicalDevice* somePhysicalDevicesOut) const;
+	void GetPhysicalDeviceProperties(const PhysicalDevice& aPhysicalDevice, VkPhysicalDeviceProperties& aPhysicalDevicePropertiesOut) const;
+	void GetPhysicalDeviceFeatures(const PhysicalDevice& aPhysicalDevice, VkPhysicalDeviceFeatures& aPhysicalDeviceFeaturesOut) const;
+	void GetPhysicalDeviceQueueFamilyProperties(const PhysicalDevice& aPhysicalDevice, uint32_t& aQueueFamilyPropertyCount, VkQueueFamilyProperties* someQueueFamilyPropertiesOut) const;
+	bool GetPhysicalDeviceSurfaceSupportKHR(const PhysicalDevice& aPhysicalDevice, uint32_t aQueueFamilyIndex, const SurfaceKHR& aSurface) const;
+	void GetPhysicalDeviceMemoryProperties(const PhysicalDevice& aPhysicalDevice, VkPhysicalDeviceMemoryProperties& aPhysicalDeviceMemoryPropertiesOut) const;
+	void EnumerateDeviceExtensionProperties(const PhysicalDevice& aPhysicalDevice, const char* aLayerName, uint32_t& aPropertyCount, VkExtensionProperties* someExtensionPropertiesOut) const;
+
+	void Create(const VkDeviceCreateInfo& aDeviceCreateInfo, const PhysicalDevice& aPhysicalDevice, Device& aDeviceOut) const;
+	void Destroy(Device& aDevice) const;
+
+	void Create(void* aWindowHandle, SurfaceKHR& aSurface) const;
+	void Destroy(SurfaceKHR& aSurface) const;
+
+	void Create(VulkanDeviceWrapper& aVulkanDeviceWrapperOut) const;
+	void Destroy(VulkanDeviceWrapper& aVulkanDeviceWrapper) const;
+
+private:
+	Instance myInstance;
+	//DebugUtilsMessengerEXT DebugMessenger; Not used for the moment
+	VulkanInstanceDispatchTable myTable;
+};
+
+class VulkanDeviceWrapper
+{
+public:
+	void Create(const VkSwapchainCreateInfoKHR& aSwapchainCreateInfoKHR, SwapchainKHR& aSwapchainOut) const;
+	void Destroy(SwapchainKHR& aSwapchain) const;
+	
+	void Create(uint32_t aWidth, uint32_t aHeight, uint32_t aDesiredImageCount, VulkanDisplayWrapper& aVulkanDisplayWrapperOut) const;
+	void Destroy(VulkanDisplayWrapper& aVulkanDisplayWrapper) const;
 
 	void Create(const VkCommandPoolCreateInfo& aCommandPoolCreateInfo, CommandPool& aCommandPoolOut);
 	void Destroy(CommandPool& aCommandPool);
@@ -119,64 +159,23 @@ public:
 	void Present(Semaphore* someWaitSemaphores, uint32_t aWaitSemaphoreCount, uint32_t anImageIndex);
 	void WaitForDevice() const;
 
-	uint32_t GetGraphicsQueueFamilyIndex() const { return myQueueFamilyIndex; }
-	uint32_t GetSwapchainImageCount() const { return mySwapchainImageCount; }
-	VkFormat GetSwapchainFormat() const { return mySwapchainFormat; }
-	void GetSwapchainImages(Image* someImagesOut);
-
 private:
+	friend class VulkanInstanceWrapper;
 
-	// This resources are handled by the Renderer and won't be handled to the user
-	void CreateInstance();
-	void DestroyInstance();
-	void CreateSurface(void* aWindowHandle);
-	void DestroySurface();
-	void CreateDevice();
-	void DestroyDevice();
-	void CreateSwapchain(uint32_t aWidth, uint32_t aHeight, uint32_t aBackFramebufferCount);
-	void DestroySwapchain();
-
-	constexpr static uint32_t ourMaxBackFramebuffers = 3u;
-
-	VkInstance myInstance = VK_NULL_HANDLE;
-	VkSurfaceKHR mySurface = VK_NULL_HANDLE;
-	VkPhysicalDevice myPhysicalDevice = VK_NULL_HANDLE;
-	VkDevice myDevice = VK_NULL_HANDLE;
-	VkQueue myQueue = VK_NULL_HANDLE;
-	VkSwapchainKHR mySwapchain = VK_NULL_HANDLE;
-	VkImageView myBackFramebufferImageViews[ourMaxBackFramebuffers] = { VK_NULL_HANDLE };
-	VkFramebuffer myBackFramebuffers[ourMaxBackFramebuffers] = { VK_NULL_HANDLE };
-	VkDebugUtilsMessengerEXT DebugMessenger = VK_NULL_HANDLE;
-
-	VkFormat mySwapchainFormat;
-
-	// For now we will just stick to one graphics queue
 	uint32_t myQueueFamilyIndex = 0u;
-	uint32_t mySwapchainImageCount = 3u;
-
-	VulkanInstanceDispatchTable myInstanceTable;
-	VulkanDeviceDispatchTable myDeviceTable;
-};
-
-class VulkanDeviceWrapper
-{
-public:
-	static void Create(const VulkanInstanceWrapper& aVulkanInstanceWrapper, VulkanDeviceWrapper& aVulkanDeviceWrapper);
-	static void Destroy(VulkanDeviceWrapper& aVulkanDeviceWrapper);
-
-private:
-	uint32_t myQueueFamilyIndex = 0u;
-	VkPhysicalDevice myPhysicalDevice = VK_NULL_HANDLE;
-	VkDevice myDevice = VK_NULL_HANDLE;
-	VkQueue myQueue = VK_NULL_HANDLE;
-
+	PhysicalDevice myPhysicalDevice;
+	Device myDevice;
+	Queue myQueue;
+	VkPhysicalDeviceMemoryProperties myMemoryProperties;
 	VulkanDeviceDispatchTable myTable;
 };
 
 class VulkanDisplayWrapper
 {
 public:
-	static void Create(const VulkanDeviceWrapper& aVulkanDeviceWrapper, void* aWindowHandle, uint32_t aBackFramebufferCount, VulkanDisplayWrapper& aVulkanDisplayWrapper);
+	// HWND for Windows
+	// Need to research other platforms
+	static void Create(const VulkanDeviceWrapper& aVulkanDeviceWrapper, const SurfaceKHR& aSurface, uint32_t aBackFramebufferCount, VulkanDisplayWrapper& aVulkanDisplayWrapper);
 	static void Destroy(VulkanDisplayWrapper& aVulkanDisplayWrapper);
 
 private:
@@ -185,7 +184,6 @@ private:
 	uint32_t myDisplayImageCount = 3u;
 	VkFormat mySwapchainFormat;
 
-	VkSurfaceKHR mySurface = VK_NULL_HANDLE;
 	VkSwapchainKHR mySwapchain = VK_NULL_HANDLE;
 	VkImageView myDisplayFramebufferImageViews[ourMaxDisplayFramebuffer] = { VK_NULL_HANDLE };
 	VkFramebuffer myDisplayFramebuffers[ourMaxDisplayFramebuffer] = { VK_NULL_HANDLE };

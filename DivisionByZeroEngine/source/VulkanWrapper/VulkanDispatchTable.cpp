@@ -29,6 +29,7 @@ void VulkanInstanceDispatchTable::Initialize(VkInstance anInstance)
 	INITIALIZE_VULKAN_INSTANCE_FUNCTION(EnumerateDeviceLayerProperties);
 
 	INITIALIZE_VULKAN_INSTANCE_FUNCTION(CreateDevice);
+	INITIALIZE_VULKAN_INSTANCE_FUNCTION(DestroyDevice);
 	INITIALIZE_VULKAN_INSTANCE_FUNCTION(CreateDebugUtilsMessengerEXT);
 	INITIALIZE_VULKAN_INSTANCE_FUNCTION(DestroyDebugUtilsMessengerEXT);
 	INITIALIZE_VULKAN_INSTANCE_FUNCTION(SubmitDebugUtilsMessageEXT);
@@ -47,7 +48,6 @@ void VulkanDeviceDispatchTable::Initialize(VkDevice aDevice, VkInstance anInstan
 
 	INITIALIZE_VULKAN_FUNCTION(getDeviceProcAddr, aDevice, GetDeviceProcAddr);
 
-	INITIALIZE_VULKAN_DEVICE_FUNCTION(DestroyDevice);
 	INITIALIZE_VULKAN_DEVICE_FUNCTION(GetDeviceQueue);
 	INITIALIZE_VULKAN_DEVICE_FUNCTION(DeviceWaitIdle);
 	INITIALIZE_VULKAN_DEVICE_FUNCTION(AcquireNextImageKHR);
