@@ -3,7 +3,7 @@
 #include "Window/WindowClass.h"
 #include "Window/Window.h"
 #include "Input/Input.h"
-#include "Engine/Renderer/Renderer.h"
+#include "Engine/Renderer/DisplayRenderer.h"
 
 class Application
 {
@@ -25,7 +25,7 @@ private:
 	WindowClass myWindowClass;
 	Window myMainWindow;
 	Input myInput;
-	DBZ::Renderer myRenderer;
+	DBZ::DisplayRenderer myDisplayRenderer;
 };
 
 Application & App();

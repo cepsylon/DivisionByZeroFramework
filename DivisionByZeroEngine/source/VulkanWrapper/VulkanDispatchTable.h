@@ -11,8 +11,6 @@ struct VulkanCommonDispatchTable
 	VULKAN_DISPATCH_FUNCTION(EnumerateInstanceExtensionProperties);
 	VULKAN_DISPATCH_FUNCTION(EnumerateInstanceLayerProperties);
 	VULKAN_DISPATCH_FUNCTION(CreateInstance);
-
-	static VulkanCommonDispatchTable ourTable;
 };
 
 struct VulkanInstanceDispatchTable

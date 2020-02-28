@@ -2,6 +2,7 @@
 
 #include "Platform/PlatformDefines.h"
 
+#include "VulkanDispatchTable.h"
 
 struct VulkanModule
 {
@@ -15,5 +16,6 @@ struct VulkanModule
 #endif // IS_WINDOWS_PLATFORM
 
 	static Handle ourHandle;
+	static VulkanCommonDispatchTable ourTable;
 	static int ourReferenceCount;
 };

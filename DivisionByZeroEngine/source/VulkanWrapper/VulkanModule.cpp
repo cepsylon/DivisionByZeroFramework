@@ -2,7 +2,10 @@
 
 #include "Platform/PlatformIncludes.h"
 
+#include <assert.h>
+
 VulkanModule::Handle VulkanModule::ourHandle = nullptr;
+VulkanCommonDispatchTable VulkanModule::ourTable;
 int VulkanModule::ourReferenceCount = 0;
 
 bool VulkanModule::Load()
@@ -18,6 +21,18 @@ bool VulkanModule::Load()
 	if (ourHandle)
 		ourReferenceCount++;
 
+	VulkanCommonDispatchTable& table = ourTable;
+	table.myGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(VulkanModule::GetProcedureAddress("vkGetInstanceProcAddr"));
+
+	// Something went wrong, we cannot continue since that's the function used to retrieve others
+	assert(table.myGetInstanceProcAddr);
+
+	// Initialize functions needed for instance creation (available layers and extensions)
+	table.myEnumerateInstanceVersion = reinterpret_cast<PFN_vkEnumerateInstanceVersion>(ourTable.myGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion"));
+	table.myEnumerateInstanceExtensionProperties = reinterpret_cast<PFN_vkEnumerateInstanceExtensionProperties>(ourTable.myGetInstanceProcAddr(nullptr, "vkEnumerateInstanceExtensionProperties"));
+	table.myEnumerateInstanceLayerProperties = reinterpret_cast<PFN_vkEnumerateInstanceLayerProperties>(ourTable.myGetInstanceProcAddr(nullptr, "vkEnumerateInstanceLayerProperties"));
+	table.myCreateInstance = reinterpret_cast<PFN_vkCreateInstance>(ourTable.myGetInstanceProcAddr(nullptr, "vkCreateInstance"));
+
 	return ourReferenceCount;
 }
 
@@ -29,6 +44,7 @@ void VulkanModule::Unload()
 		FreeLibrary(reinterpret_cast<HMODULE>(ourHandle));
 #endif
 
+		memset(&ourTable, 0, sizeof(ourTable));
 		ourHandle = nullptr;
 	}
 

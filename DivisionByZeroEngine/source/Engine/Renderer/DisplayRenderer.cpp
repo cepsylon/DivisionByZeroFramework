@@ -1,25 +1,26 @@
-#include "Renderer.h"
+#include "DisplayRenderer.h"
 
 #include "Window/Window.h"
 
 namespace DBZ
 {
 
-void Renderer::Create(Window& aWindow, uint32_t aDesiredBackFramebufferImages, Renderer& aRenderer)
+void DisplayRenderer::Create(Window& aWindow, uint32_t aDesiredBackFramebufferImages, DisplayRenderer& aDisplayRenderer)
 {
 	aDesiredBackFramebufferImages = ourMaxDisplayImageCount < aDesiredBackFramebufferImages ? ourMaxDisplayImageCount : aDesiredBackFramebufferImages;
-	VulkanWrapper::Create(aWindow.GetWindowHandle(), aDesiredBackFramebufferImages, aRenderer.myVulkanWrapper);
+	VulkanWrapper::Create(aWindow.GetWindowHandle(), aDesiredBackFramebufferImages, aDisplayRenderer.myVulkanWrapper);
 
-	aRenderer.myDisplayImageCount = aRenderer.myVulkanWrapper.GetSwapchainImageCount();
-	aRenderer.myMaxOnFlightImageCount = aRenderer.myDisplayImageCount > 1 ? aRenderer.myDisplayImageCount - 1 : 1;
-	aRenderer.myOnFlightImageIndex = 0u;
-	aRenderer.myDisplayWidth = aWindow.GetClientWidth();
-	aRenderer.myDisplayHeight = aWindow.GetClientHeight();
+	aDisplayRenderer.myDisplayImageCount = aDisplayRenderer.myVulkanWrapper.GetSwapchainImageCount();
+	aDisplayRenderer.myOnFlightImageCount = aDisplayRenderer.myDisplayImageCount > 1 ? aDisplayRenderer.myDisplayImageCount - 1 : 1;
+	aDisplayRenderer.myDisplayImageIndex = 0u;
+	aDisplayRenderer.myOnFlightImageIndex = 0u;
+	aDisplayRenderer.myDisplayWidth = aWindow.GetClientWidth();
+	aDisplayRenderer.myDisplayHeight = aWindow.GetClientHeight();
 
 	// TODO: For now we can only draw to back frame buffer to draw directly to it with no depth testing
 
 	// Create render pass
-	VkFormat swapchainFormat = aRenderer.myVulkanWrapper.GetSwapchainFormat();
+	VkFormat swapchainFormat = aDisplayRenderer.myVulkanWrapper.GetSwapchainFormat();
 	VkAttachmentDescription attachmentDescription
 	{
 		0,
@@ -77,12 +78,12 @@ void Renderer::Create(Window& aWindow, uint32_t aDesiredBackFramebufferImages, R
 		&attachmentDependency
 	};
 
-	aRenderer.myVulkanWrapper.Create(renderPassCreateInfo, aRenderer.myDisplayRenderPass);
+	aDisplayRenderer.myVulkanWrapper.Create(renderPassCreateInfo, aDisplayRenderer.myDisplayRenderPass);
 
 	// Create ImageViews for later generation of the back framebuffers
-	std::vector<Image> swapchainImages(aRenderer.myDisplayImageCount);
-	aRenderer.myVulkanWrapper.GetSwapchainImages(swapchainImages.data());
-	for (uint32_t i = 0; i < aRenderer.myDisplayImageCount; ++i)
+	std::vector<Image> swapchainImages(aDisplayRenderer.myDisplayImageCount);
+	aDisplayRenderer.myVulkanWrapper.GetSwapchainImages(swapchainImages.data());
+	for (uint32_t i = 0; i < aDisplayRenderer.myDisplayImageCount; ++i)
 	{
 		VkImageViewCreateInfo imageViewCreateInfo =
 		{
@@ -107,7 +108,7 @@ void Renderer::Create(Window& aWindow, uint32_t aDesiredBackFramebufferImages, R
 			}
 		};
 
-		aRenderer.myVulkanWrapper.Create(imageViewCreateInfo, aRenderer.myDisplayImageViews[i]);
+		aDisplayRenderer.myVulkanWrapper.Create(imageViewCreateInfo, aDisplayRenderer.myDisplayImageViews[i]);
 	}
 
 	// Create framebuffers for the render pass
@@ -116,18 +117,18 @@ void Renderer::Create(Window& aWindow, uint32_t aDesiredBackFramebufferImages, R
 		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 		nullptr,
 		0,
-		Unwrap(aRenderer.myDisplayRenderPass),
+		Unwrap(aDisplayRenderer.myDisplayRenderPass),
 		1,
 		nullptr, // Filled in loop for each framebuffer
-		aRenderer.myDisplayWidth,
-		aRenderer.myDisplayHeight,
+		aDisplayRenderer.myDisplayWidth,
+		aDisplayRenderer.myDisplayHeight,
 		1
 	};
 
-	for (uint32_t i = 0; i < aRenderer.myDisplayImageCount; ++i)
+	for (uint32_t i = 0; i < aDisplayRenderer.myDisplayImageCount; ++i)
 	{
-		framebufferCreateInfo.pAttachments = Unwrap(&aRenderer.myDisplayImageViews[i]);
-		aRenderer.myVulkanWrapper.Create(framebufferCreateInfo, aRenderer.myDisplayFramebuffers[i]);
+		framebufferCreateInfo.pAttachments = Unwrap(&aDisplayRenderer.myDisplayImageViews[i]);
+		aDisplayRenderer.myVulkanWrapper.Create(framebufferCreateInfo, aDisplayRenderer.myDisplayFramebuffers[i]);
 	}
 
 	// Create acquire semaphores
@@ -146,47 +147,47 @@ void Renderer::Create(Window& aWindow, uint32_t aDesiredBackFramebufferImages, R
 		VK_FENCE_CREATE_SIGNALED_BIT
 	};
 
-	for (uint32_t i = 0; i < aRenderer.myMaxOnFlightImageCount; ++i)
+	for (uint32_t i = 0; i < aDisplayRenderer.myOnFlightImageCount; ++i)
 	{
-		aRenderer.myVulkanWrapper.Create(semaphoreCreateInfo, aRenderer.myOnFlightImageSemaphores[i]);
-		aRenderer.myVulkanWrapper.Create(fenceCreateInfo, aRenderer.myOnFlightFences[i]);
+		aDisplayRenderer.myVulkanWrapper.Create(semaphoreCreateInfo, aDisplayRenderer.myOnFlightImageSemaphores[i]);
+		aDisplayRenderer.myVulkanWrapper.Create(fenceCreateInfo, aDisplayRenderer.myOnFlightFences[i]);
 	}
 }
 
-void Renderer::Destroy(Renderer& aRenderer)
+void DisplayRenderer::Destroy(DisplayRenderer& aDisplayRenderer)
 {
 	// Destroy all resources
 
-	for (uint32_t i = 0; i < aRenderer.myMaxOnFlightImageCount; ++i)
+	for (uint32_t i = 0; i < aDisplayRenderer.myOnFlightImageCount; ++i)
 	{
-		aRenderer.myVulkanWrapper.Destroy(aRenderer.myOnFlightFences[i]);
-		aRenderer.myVulkanWrapper.Destroy(aRenderer.myOnFlightImageSemaphores[i]);
+		aDisplayRenderer.myVulkanWrapper.Destroy(aDisplayRenderer.myOnFlightFences[i]);
+		aDisplayRenderer.myVulkanWrapper.Destroy(aDisplayRenderer.myOnFlightImageSemaphores[i]);
 	}
-	aRenderer.myVulkanWrapper.Destroy(aRenderer.myDisplayRenderPass);
-	for (uint32_t i = 0; i < aRenderer.myDisplayImageCount; ++i)
+	aDisplayRenderer.myVulkanWrapper.Destroy(aDisplayRenderer.myDisplayRenderPass);
+	for (uint32_t i = 0; i < aDisplayRenderer.myDisplayImageCount; ++i)
 	{
-		aRenderer.myVulkanWrapper.Destroy(aRenderer.myDisplayFramebuffers[i]);
-		aRenderer.myVulkanWrapper.Destroy(aRenderer.myDisplayImageViews[i]);
+		aDisplayRenderer.myVulkanWrapper.Destroy(aDisplayRenderer.myDisplayFramebuffers[i]);
+		aDisplayRenderer.myVulkanWrapper.Destroy(aDisplayRenderer.myDisplayImageViews[i]);
 	}
 
-	VulkanWrapper::Destroy(aRenderer.myVulkanWrapper);
+	VulkanWrapper::Destroy(aDisplayRenderer.myVulkanWrapper);
 
 #if IS_DEBUG_BUILD
-	memset(&aRenderer, 0, sizeof(aRenderer));
+	memset(&aDisplayRenderer, 0, sizeof(aDisplayRenderer));
 #endif
 }
 
-uint32_t Renderer::BeginFrame()
+void DisplayRenderer::BeginFrame()
 {
 	// Throttle GPU if needed so we do not waste more power than needed for display frame rate
 	Fence& fence = myOnFlightFences[myOnFlightImageIndex];
 	myVulkanWrapper.WaitForFences(&fence, 1);
 	myVulkanWrapper.ResetFences(&fence, 1);
 
-	return myVulkanWrapper.AcquireNextImage(myOnFlightImageSemaphores[myOnFlightImageIndex]);
+	myVulkanWrapper.AcquireNextImage(myOnFlightImageSemaphores[myOnFlightImageIndex]);
 }
 
-void Renderer::BindDisplay(CommandBuffer& aCommandBuffer, uint32_t aFrameIndex, bool aShouldClear, float aRed, float aGreen, float aBlue, float anAlpha)
+void DisplayRenderer::BindDisplay(CommandBuffer& aCommandBuffer, bool aShouldClear, float aRed, float aGreen, float aBlue, float anAlpha)
 {
 	VkClearValue clearValue;
 	clearValue.color.float32[0] = aRed;
@@ -201,7 +202,7 @@ void Renderer::BindDisplay(CommandBuffer& aCommandBuffer, uint32_t aFrameIndex, 
 		VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		nullptr,
 		Unwrap(myDisplayRenderPass),
-		Unwrap(myDisplayFramebuffers[aFrameIndex]),
+		Unwrap(myDisplayFramebuffers[myDisplayImageIndex]),
 		{ 0u, 0u, myDisplayWidth, myDisplayHeight },
 		static_cast<uint32_t>(aShouldClear),
 		&clearValue
@@ -209,18 +210,24 @@ void Renderer::BindDisplay(CommandBuffer& aCommandBuffer, uint32_t aFrameIndex, 
 	myVulkanWrapper.BeginRenderPass(aCommandBuffer, renderPassBeginInfo);
 }
 
-void Renderer::EndDisplayRender(Semaphore* someWaitSemaphores, uint32_t aWaitSemaphoreCount, CommandBuffer* someCommandBuffers, uint32_t aCommandBufferCount, Semaphore* someSignalSemaphores, uint32_t aSignalSemaphoreCount)
+void DisplayRenderer::UnbindDisplay(CommandBuffer& aCommandBuffer)
+{
+	myVulkanWrapper.EndRenderPass(aCommandBuffer);
+}
+
+void DisplayRenderer::Submit(Semaphore* someWaitSemaphores, uint32_t aWaitSemaphoreCount, CommandBuffer* someCommandBuffers, uint32_t aCommandBufferCount, Semaphore* someSignalSemaphores, uint32_t aSignalSemaphoreCount)
 {
 
 }
 
-void Renderer::EndFrame(uint32_t aFrameIndex)
+void DisplayRenderer::EndFrame()
 {
-	myVulkanWrapper.Present(nullptr, 0, aFrameIndex);
-	myOnFlightImageIndex = myMaxOnFlightImageCount == 2u ? myOnFlightImageIndex ^ 1u : 0u;
+	myVulkanWrapper.Present(nullptr, 0, myDisplayImageIndex);
+	myOnFlightImageIndex = (myOnFlightImageIndex + 1) % myOnFlightImageCount;
+	myDisplayImageIndex = (myDisplayImageIndex + 1) % myDisplayImageCount;
 }
 
-void Renderer::ResizeDisplayImage(uint32_t aWidth, uint32_t aHeight)
+void DisplayRenderer::ResizeDisplayImage(uint32_t aWidth, uint32_t aHeight)
 {
 	myDisplayWidth = aWidth;
 	myDisplayHeight = aHeight;

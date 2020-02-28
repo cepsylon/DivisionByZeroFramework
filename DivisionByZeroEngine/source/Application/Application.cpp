@@ -17,11 +17,8 @@
 
 namespace Gfx
 {
-	uint32_t currentFrame = 0u;
-	uint32_t checkIndex = 0u;
-
 	CommandPool locCommandPool;
-	CommandBuffer locCommandBuffers[DBZ::Renderer::ourMaxDisplayImageCount];
+	CommandBuffer locCommandBuffers[DBZ::DisplayRenderer::ourMaxOnFlightImageCount];
 	ShaderModule locVertexShader;
 	ShaderModule locFragmentShader;
 	DescriptorSetLayout locDescriptorSetLayout;
@@ -31,13 +28,13 @@ namespace Gfx
 	// Vertex buffer and associated memory
 	Buffer locBuffer;
 	DeviceMemory locDeviceMemory;
-	Buffer locUniformBuffer[DBZ::Renderer::ourMaxOnFlightImageCount];
+	Buffer locUniformBuffer[DBZ::DisplayRenderer::ourMaxOnFlightImageCount];
 	DeviceMemory locUniformDeviceMemory;
 	VkDeviceSize locUniformBufferOffset = 0u;
 
 	// Descriptors
 	DescriptorPool locDescriptorPool;
-	DescriptorSet locDescriptorSet[DBZ::Renderer::ourMaxDisplayImageCount];
+	DescriptorSet locDescriptorSet[DBZ::DisplayRenderer::ourMaxOnFlightImageCount];
 
 	Camera locCamera;
 }
@@ -50,9 +47,11 @@ void Application::Initialize()
 	myMainWindow.GetWindowPaintCallbacks().Add(*this, &Application::WindowPaint);
 	myMainWindow.GetWindowKeyDownCallbacks().Add(myInput, &Input::KeyPressed);
 	myMainWindow.GetWindowKeyUpCallbacks().Add(myInput, &Input::KeyReleased);
-	DBZ::Renderer::Create(myMainWindow, 3, myRenderer);
+	DBZ::DisplayRenderer::Create(myMainWindow, 3, myDisplayRenderer);
 
-	VulkanWrapper& vulkanWrapper = myRenderer.GetVulkanWrapper();
+	uint32_t displayRendererOnFlightImageCount = myDisplayRenderer.GetOnFlightImageCount();
+
+	VulkanWrapper& vulkanWrapper = myDisplayRenderer.GetVulkanWrapper();
 
 	// Create command pool
 	VkCommandPoolCreateInfo commandPoolCreateInfo
@@ -72,7 +71,7 @@ void Application::Initialize()
 		nullptr,
 		Unwrap(Gfx::locCommandPool),
 		VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-		myRenderer.GetDisplayImageCount()
+		displayRendererOnFlightImageCount
 	};
 	
 	vulkanWrapper.Create(commandBufferCreateInfo, Gfx::locCommandBuffers);
@@ -331,7 +330,7 @@ void Application::Initialize()
 		&pipelineColorBlendStateInfo,
 		&pipelineDynamicStateInfo,
 		Unwrap(Gfx::locPipelineLayout),
-		Unwrap(myRenderer.GetRenderPass()),
+		Unwrap(myDisplayRenderer.GetRenderPass()),
 		0,
 		VK_NULL_HANDLE,
 		0
@@ -387,16 +386,16 @@ void Application::Initialize()
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 	bufferCreateInfo.size = sizeof(mvp);
 
-	for (uint32_t i = 0; i < DBZ::Renderer::ourMaxOnFlightImageCount; ++i)
+	for (uint32_t i = 0; i < displayRendererOnFlightImageCount; ++i)
 		vulkanWrapper.Create(bufferCreateInfo, Gfx::locUniformBuffer[i]);
 
 	// Allocate uniform buffers memory
 	VkMemoryRequirements uniformBufferMemoryRequirements;
 	vulkanWrapper.GetMemoryRequirements(Gfx::locUniformBuffer[0], uniformBufferMemoryRequirements);
-	vulkanWrapper.AllocateDeviceMemory(uniformBufferMemoryRequirements.size * DBZ::Renderer::ourMaxOnFlightImageCount, uniformBufferMemoryRequirements.memoryTypeBits, memoryPropertyFlags, Gfx::locUniformDeviceMemory);
+	vulkanWrapper.AllocateDeviceMemory(uniformBufferMemoryRequirements.size * displayRendererOnFlightImageCount, uniformBufferMemoryRequirements.memoryTypeBits, memoryPropertyFlags, Gfx::locUniformDeviceMemory);
 	Gfx::locUniformBufferOffset = uniformBufferMemoryRequirements.size;
 
-	for (uint32_t i = 0; i < DBZ::Renderer::ourMaxOnFlightImageCount; ++i)
+	for (uint32_t i = 0; i < displayRendererOnFlightImageCount; ++i)
 	{
 		VkDeviceSize offset = Gfx::locUniformBufferOffset * i;
 		vulkanWrapper.BindDeviceMemory(Gfx::locUniformDeviceMemory, offset, Gfx::locUniformBuffer[i]);
@@ -422,7 +421,7 @@ void Application::Initialize()
 	};
 	vulkanWrapper.Create(descriptorPoolCreateInfo, Gfx::locDescriptorPool);
 
-	for (uint32_t i = 0; i < DBZ::Renderer::ourMaxOnFlightImageCount; ++i)
+	for (uint32_t i = 0; i < displayRendererOnFlightImageCount; ++i)
 	{
 		VkDescriptorSetAllocateInfo descriptorSetAllocateInfo
 		{
@@ -470,16 +469,17 @@ void Application::Run()
 
 void Application::Shutdown()
 {
-	VulkanWrapper& vulkanWrapper = myRenderer.GetVulkanWrapper();
+	VulkanWrapper& vulkanWrapper = myDisplayRenderer.GetVulkanWrapper();
+	uint32_t displayRendererOnFlightImageCount = myDisplayRenderer.GetOnFlightImageCount();
 
 	// Wait for device to finish before deleting anything
 	vulkanWrapper.WaitForDevice();
 
 	// Destroy all resources
-	vulkanWrapper.Destroy(Gfx::locDescriptorPool, Gfx::locDescriptorSet, DBZ::Renderer::ourMaxOnFlightImageCount);
+	vulkanWrapper.Destroy(Gfx::locDescriptorPool, Gfx::locDescriptorSet, displayRendererOnFlightImageCount);
 	vulkanWrapper.Destroy(Gfx::locDescriptorPool);
 	vulkanWrapper.FreeDeviceMemory(Gfx::locUniformDeviceMemory);
-	for (uint32_t i = 0; i < DBZ::Renderer::ourMaxOnFlightImageCount; ++i)
+	for (uint32_t i = 0; i < displayRendererOnFlightImageCount; ++i)
 		vulkanWrapper.Destroy(Gfx::locUniformBuffer[i]);
 	vulkanWrapper.FreeDeviceMemory(Gfx::locDeviceMemory);
 	vulkanWrapper.Destroy(Gfx::locBuffer);
@@ -488,30 +488,31 @@ void Application::Shutdown()
 	vulkanWrapper.Destroy(Gfx::locDescriptorSetLayout);
 	vulkanWrapper.Destroy(Gfx::locFragmentShader);
 	vulkanWrapper.Destroy(Gfx::locVertexShader);
-	vulkanWrapper.Destroy(Gfx::locCommandPool, Gfx::locCommandBuffers, DBZ::Renderer::ourMaxDisplayImageCount);
+	vulkanWrapper.Destroy(Gfx::locCommandPool, Gfx::locCommandBuffers, displayRendererOnFlightImageCount);
 	vulkanWrapper.Destroy(Gfx::locCommandPool);
 
 	// Release memory
-	DBZ::Renderer::Destroy(myRenderer);
+	DBZ::DisplayRenderer::Destroy(myDisplayRenderer);
 	Window::Destroy(myMainWindow);
 	WindowClass::Destroy(myWindowClass);
 }
 
 void Application::WindowResize(uint32_t aWidth, uint32_t aHeight)
 {
-	VulkanWrapper& vulkanWrapper = myRenderer.GetVulkanWrapper();
+	VulkanWrapper& vulkanWrapper = myDisplayRenderer.GetVulkanWrapper();
 
 	// Wait for device and destroy Swapchain specific resources
 	vulkanWrapper.WaitForDevice();
-	myRenderer.ResizeDisplayImage(aWidth, aHeight);
+	myDisplayRenderer.ResizeDisplayImage(aWidth, aHeight);
 }
 
 void Application::WindowPaint()
 {
-	VulkanWrapper& vulkanWrapper = myRenderer.GetVulkanWrapper();
+	VulkanWrapper& vulkanWrapper = myDisplayRenderer.GetVulkanWrapper();
 
 	// Render
-	uint32_t frameIndex = myRenderer.BeginFrame();
+	myDisplayRenderer.BeginFrame();
+	uint32_t frameIndex = myDisplayRenderer.GetFrameIndex();
 
 	// Update uniform buffer
 	static float xPosition = 0.0f;
@@ -532,13 +533,12 @@ void Application::WindowPaint()
 	Matrix44 orientationMatrix = orientation.GetMatrix();
 	float aspectRatio = static_cast<float>(myMainWindow.GetClientWidth()) / static_cast<float>(myMainWindow.GetClientHeight());
 	Matrix44 mvp = Gfx::locCamera.ProjectionMatrix(aspectRatio) * Matrix44::Translate(xPosition, yPosition, -10.0f) * orientationMatrix;
-	VkDeviceSize offset = Gfx::locUniformBufferOffset * Gfx::checkIndex;
+	VkDeviceSize offset = Gfx::locUniformBufferOffset * frameIndex;
 	void* mappedDeviceMemory = vulkanWrapper.MapDeviceMemory(Gfx::locUniformDeviceMemory, offset, sizeof(mvp));
 	std::memcpy(mappedDeviceMemory, &mvp, sizeof(mvp));
 	vulkanWrapper.UnmapDeviceMemory(Gfx::locUniformDeviceMemory);
 
 	CommandBuffer& cmd = Gfx::locCommandBuffers[frameIndex];
-	Framebuffer& framebuffer = myRenderer.GetFramebuffer(frameIndex);
 
 	// Start recording
 	VkCommandBufferBeginInfo beginInfo
@@ -552,7 +552,7 @@ void Application::WindowPaint()
 	vulkanWrapper.BeginCommandBuffer(cmd, beginInfo);
 
 	// Render to display
-	myRenderer.BindDisplay(cmd, frameIndex, true);
+	myDisplayRenderer.BindDisplay(cmd, true);
 
 	// Bind pipeline
 	vulkanWrapper.BindPipeline(cmd, Gfx::locGraphicsPipeline, true);
@@ -576,12 +576,12 @@ void Application::WindowPaint()
 	vulkanWrapper.SetScissor(cmd, &scissor, 1, 0);
 
 	// Draw
-	vulkanWrapper.BindDescriptorSets(cmd, Gfx::locPipelineLayout, &Gfx::locDescriptorSet[Gfx::checkIndex], 1);
+	vulkanWrapper.BindDescriptorSets(cmd, Gfx::locPipelineLayout, &Gfx::locDescriptorSet[frameIndex], 1);
 	VkDeviceSize vertexBufferOffset = 0u;
 	vulkanWrapper.BindVertexBuffers(cmd, &Gfx::locBuffer, &vertexBufferOffset, 1);
 	vulkanWrapper.Draw(cmd, 4, 0, 1, 0);
 
-	vulkanWrapper.EndRenderPass(cmd);
+	myDisplayRenderer.UnbindDisplay(cmd);
 	vulkanWrapper.EndCommandBuffer(cmd);
 
 	VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -590,18 +590,14 @@ void Application::WindowPaint()
 	submitInfo.pNext = NULL;
 	submitInfo.pWaitDstStageMask = &pipelineStageFlags;
 	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = Unwrap(&myRenderer.GetSemaphore(Gfx::checkIndex));
+	submitInfo.pWaitSemaphores = Unwrap(&myDisplayRenderer.GetFrameSemaphore());
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = Unwrap(&cmd);
 	submitInfo.signalSemaphoreCount = 0;
 	submitInfo.pSignalSemaphores = nullptr;
 
-	vulkanWrapper.Submit(&submitInfo, 1, myRenderer.GetFence(Gfx::checkIndex));
-	myRenderer.EndFrame(frameIndex);
-
-	// Update values for next frame
-	Gfx::currentFrame++;
-	Gfx::checkIndex = Gfx::currentFrame & 1;
+	vulkanWrapper.Submit(&submitInfo, 1, myDisplayRenderer.GetFrameFence());
+	myDisplayRenderer.EndFrame();
 }
 
 Application & App()

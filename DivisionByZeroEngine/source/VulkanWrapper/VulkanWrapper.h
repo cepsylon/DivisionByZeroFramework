@@ -37,32 +37,14 @@ WRAP_VULKAN_RESOURCE(DescriptorSet);
 
 #include "VulkanDispatchTable.h"
 
-class Window;
-class CommandPool;
-class CommandBuffer;
-class RenderPass;
-class Image;
-class ImageView;
-class Framebuffer;
-class DescriptorSetLayout;
-class DescriptorPool;
-class DescriptorSet;
-class PipelineLayout;
-class Pipeline;
-class Semaphore;
-class Fence;
-class ShaderModule;
-class DeviceMemory;
-class Buffer;
-
 // Renderer instance
-class VulkanWrapper
+class VulkanInstanceWrapper
 {
 public:
 	// HWND for Windows
 	// Need to research other platforms
-	static void Create(void* aWindowHandle, uint32_t aBackFramebufferCount, VulkanWrapper& aVulkanWrapper);
-	static void Destroy(VulkanWrapper& aVulkanWrapper);
+	static void Create(VulkanInstanceWrapper& aVulkanWrapper);
+	static void Destroy(VulkanInstanceWrapper& aVulkanWrapper);
 
 	void Create(const VkCommandPoolCreateInfo& aCommandPoolCreateInfo, CommandPool& aCommandPoolOut);
 	void Destroy(CommandPool& aCommandPool);
@@ -143,7 +125,6 @@ public:
 	void GetSwapchainImages(Image* someImagesOut);
 
 private:
-	static void InitializeVulkanCommonTable();
 
 	// This resources are handled by the Renderer and won't be handled to the user
 	void CreateInstance();
@@ -176,3 +157,37 @@ private:
 	VulkanInstanceDispatchTable myInstanceTable;
 	VulkanDeviceDispatchTable myDeviceTable;
 };
+
+class VulkanDeviceWrapper
+{
+public:
+	static void Create(const VulkanInstanceWrapper& aVulkanInstanceWrapper, VulkanDeviceWrapper& aVulkanDeviceWrapper);
+	static void Destroy(VulkanDeviceWrapper& aVulkanDeviceWrapper);
+
+private:
+	uint32_t myQueueFamilyIndex = 0u;
+	VkPhysicalDevice myPhysicalDevice = VK_NULL_HANDLE;
+	VkDevice myDevice = VK_NULL_HANDLE;
+	VkQueue myQueue = VK_NULL_HANDLE;
+
+	VulkanDeviceDispatchTable myTable;
+};
+
+class VulkanDisplayWrapper
+{
+public:
+	static void Create(const VulkanDeviceWrapper& aVulkanDeviceWrapper, void* aWindowHandle, uint32_t aBackFramebufferCount, VulkanDisplayWrapper& aVulkanDisplayWrapper);
+	static void Destroy(VulkanDisplayWrapper& aVulkanDisplayWrapper);
+
+private:
+	constexpr static uint32_t ourMaxDisplayFramebuffer = 3u;
+
+	uint32_t myDisplayImageCount = 3u;
+	VkFormat mySwapchainFormat;
+
+	VkSurfaceKHR mySurface = VK_NULL_HANDLE;
+	VkSwapchainKHR mySwapchain = VK_NULL_HANDLE;
+	VkImageView myDisplayFramebufferImageViews[ourMaxDisplayFramebuffer] = { VK_NULL_HANDLE };
+	VkFramebuffer myDisplayFramebuffers[ourMaxDisplayFramebuffer] = { VK_NULL_HANDLE };
+};
+

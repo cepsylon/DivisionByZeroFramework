@@ -1,8 +1,8 @@
 #include "VulkanDispatchTable.h"
 
-#include <cstring>
+#include "VulkanModule.h"
 
-VulkanCommonDispatchTable VulkanCommonDispatchTable::ourTable;
+#include <string.h>
 
 #define INITIALIZE_VULKAN_FUNCTION(getProcAddr, object, name) my##name = reinterpret_cast<PFN_vk##name>(getProcAddr(object, "vk" #name))
 
@@ -10,7 +10,7 @@ void VulkanInstanceDispatchTable::Initialize(VkInstance anInstance)
 {
 #define INITIALIZE_VULKAN_INSTANCE_FUNCTION(name) INITIALIZE_VULKAN_FUNCTION(myGetInstanceProcAddr, anInstance, name)
 
-	INITIALIZE_VULKAN_FUNCTION(VulkanCommonDispatchTable::ourTable.myGetInstanceProcAddr, anInstance, GetInstanceProcAddr);
+	INITIALIZE_VULKAN_FUNCTION(VulkanModule::ourTable.myGetInstanceProcAddr, anInstance, GetInstanceProcAddr);
 	INITIALIZE_VULKAN_INSTANCE_FUNCTION(GetDeviceProcAddr);
 
 	INITIALIZE_VULKAN_INSTANCE_FUNCTION(DestroyInstance);
@@ -38,7 +38,7 @@ void VulkanInstanceDispatchTable::Initialize(VkInstance anInstance)
 
 void VulkanInstanceDispatchTable::Clear()
 {
-	std::memset(this, 0, sizeof(VulkanInstanceDispatchTable));
+	memset(this, 0, sizeof(*this));
 }
 
 void VulkanDeviceDispatchTable::Initialize(VkDevice aDevice, VkInstance anInstance, PFN_vkGetDeviceProcAddr getDeviceProcAddr)
@@ -130,5 +130,5 @@ void VulkanDeviceDispatchTable::Initialize(VkDevice aDevice, VkInstance anInstan
 
 void VulkanDeviceDispatchTable::Clear()
 {
-	std::memset(this, 0, sizeof(VulkanDeviceDispatchTable));
+	memset(this, 0, sizeof(*this));
 }
