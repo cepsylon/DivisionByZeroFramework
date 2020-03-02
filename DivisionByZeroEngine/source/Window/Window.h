@@ -37,7 +37,7 @@ public:
 	const Callback<unsigned char>& GetWindowKeyDownCallbacks() const { return myWindowKeyDownCallbacks; }
 	Callback<unsigned char>& GetWindowKeyUpCallbacks() { return myWindowKeyUpCallbacks; }
 	const Callback<unsigned char>& GetWindowKeyUpCallbacks() const { return myWindowKeyUpCallbacks; }
-	Handle GetWindowHandle() { return myWindowHandle; }
+	Handle GetWindowHandle() const { return myWindowHandle; }
 	int GetX() const { return myX; }
 	int GetY() const { return myY; }
 	unsigned GetWidth() const { return myWidth; }

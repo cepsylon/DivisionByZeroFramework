@@ -11,7 +11,8 @@ inline const Vk##name& Unwrap(const name& aResource) { return reinterpret_cast<c
 inline const Vk##name* Unwrap(const name* aResource) { return reinterpret_cast<const Vk##name*>(aResource); } \
 inline Vk##name& Unwrap(name& aResource) { return reinterpret_cast<Vk##name&>(aResource); } \
 inline Vk##name* Unwrap(name* aResource) { return reinterpret_cast<Vk##name*>(aResource); } \
-class name { Vk##name myHandle = VK_NULL_HANDLE; }
+class name { Vk##name myHandle = VK_NULL_HANDLE; }; \
+static_assert(sizeof(Vk##name) == sizeof(name), "Resource wrapper size does not match original size");
 #endif // WRAP_VULKAN_RESOURCE
 
 // We need to wrap around the vk versions because most of them are typedefs of the same type
@@ -45,7 +46,7 @@ WRAP_VULKAN_RESOURCE(DescriptorSet);
 #include "VulkanDispatchTable.h"
 
 class VulkanDeviceWrapper;
-class VulkanDisplayWrapper;
+class VulkanCommandBufferWrapper;
 
 // Renderer instance
 class VulkanInstanceWrapper
@@ -59,17 +60,21 @@ public:
 	void GetPhysicalDeviceFeatures(const PhysicalDevice& aPhysicalDevice, VkPhysicalDeviceFeatures& aPhysicalDeviceFeaturesOut) const;
 	void GetPhysicalDeviceQueueFamilyProperties(const PhysicalDevice& aPhysicalDevice, uint32_t& aQueueFamilyPropertyCount, VkQueueFamilyProperties* someQueueFamilyPropertiesOut) const;
 	bool GetPhysicalDeviceSurfaceSupportKHR(const PhysicalDevice& aPhysicalDevice, uint32_t aQueueFamilyIndex, const SurfaceKHR& aSurface) const;
+	void GetPhysicalDeviceSurfaceFormatsKHR(const PhysicalDevice& aPhysicalDevice, const SurfaceKHR& aSurface, uint32_t& aSurfaceFormatCount, VkSurfaceFormatKHR* someSurfaceFormatsOut) const;
+	void GetPhysicalDeviceSurfaceCapabilitiesKHR(const PhysicalDevice& aPhysicalDevice, const SurfaceKHR& aSurface, VkSurfaceCapabilitiesKHR& aSurfaceCapabilitiesKHROut) const;
 	void GetPhysicalDeviceMemoryProperties(const PhysicalDevice& aPhysicalDevice, VkPhysicalDeviceMemoryProperties& aPhysicalDeviceMemoryPropertiesOut) const;
 	void EnumerateDeviceExtensionProperties(const PhysicalDevice& aPhysicalDevice, const char* aLayerName, uint32_t& aPropertyCount, VkExtensionProperties* someExtensionPropertiesOut) const;
 
-	void Create(const VkDeviceCreateInfo& aDeviceCreateInfo, const PhysicalDevice& aPhysicalDevice, Device& aDeviceOut) const;
-	void Destroy(Device& aDevice) const;
+	void Create(const PhysicalDevice& aPhysicalDevice, const VkDeviceCreateInfo& aDeviceCreateInfo, VulkanDeviceWrapper& aVulkanDeviceWrapperOut) const;
+	void Destroy(VulkanDeviceWrapper& aVulkanDeviceWrapper) const;
 
+	// HWND for Windows
+	// Need to research other platforms
 	void Create(void* aWindowHandle, SurfaceKHR& aSurface) const;
 	void Destroy(SurfaceKHR& aSurface) const;
 
-	void Create(VulkanDeviceWrapper& aVulkanDeviceWrapperOut) const;
-	void Destroy(VulkanDeviceWrapper& aVulkanDeviceWrapper) const;
+	Instance GetInstance() const { return myInstance; }
+	const VulkanInstanceDispatchTable& GetTable() const { return myTable; }
 
 private:
 	Instance myInstance;
@@ -80,112 +85,103 @@ private:
 class VulkanDeviceWrapper
 {
 public:
+	uint32_t AcquireNextImage(const SwapchainKHR& aSwapchain, const Semaphore* aSemaphore, const Fence* aFence) const;
+	void GetSwapchainImagesKHR(const SwapchainKHR& aSwapchain, uint32_t& aSwapchainImageCount, Image* someSwapchainImagesOut) const;
+	void WaitForFences(Fence* someFences, uint32_t aFenceCount) const;
+	void ResetFences(Fence* someFences, uint32_t aFenceCount) const;
+	void Submit(uint32_t aQueueIndex, const VkSubmitInfo* aSubmitInfos, uint32_t aSubmitCount, const Fence* aFence) const;
+	void Present(const VkPresentInfoKHR& aPresentInfoKHR, uint32_t aQueueIndex) const;
+	void WaitForDevice() const;
+
 	void Create(const VkSwapchainCreateInfoKHR& aSwapchainCreateInfoKHR, SwapchainKHR& aSwapchainOut) const;
 	void Destroy(SwapchainKHR& aSwapchain) const;
-	
-	void Create(uint32_t aWidth, uint32_t aHeight, uint32_t aDesiredImageCount, VulkanDisplayWrapper& aVulkanDisplayWrapperOut) const;
-	void Destroy(VulkanDisplayWrapper& aVulkanDisplayWrapper) const;
 
-	void Create(const VkCommandPoolCreateInfo& aCommandPoolCreateInfo, CommandPool& aCommandPoolOut);
-	void Destroy(CommandPool& aCommandPool);
+	void Create(const VkCommandPoolCreateInfo& aCommandPoolCreateInfo, CommandPool& aCommandPoolOut) const;
+	void Destroy(CommandPool& aCommandPool) const;
 
-	void Create(const VkCommandBufferAllocateInfo& aCommanBufferAllocateInfo, CommandBuffer* someCommandBuffersOut);
-	void Destroy(CommandPool& aCommandPool, CommandBuffer* someCommandBuffers, uint32_t aCommandBufferCount);
+	void Create(const VkCommandBufferAllocateInfo& aCommanBufferAllocateInfo, VulkanCommandBufferWrapper* someVulkanCommandBufferWrappers) const;
+	void Destroy(CommandPool& aCommandPool, VulkanCommandBufferWrapper* someCommandBuffers, uint32_t aCommandBufferCount) const;
 
-	void Create(const VkRenderPassCreateInfo& aRenderPassCreateInfo, RenderPass& aRenderPassOut);
-	void Destroy(RenderPass& aRenderPass);
+	void Create(const VkRenderPassCreateInfo& aRenderPassCreateInfo, RenderPass& aRenderPassOut) const;
+	void Destroy(RenderPass& aRenderPass) const;
 
-	void Create(const VkImageViewCreateInfo& aImageViewCreateInfo, ImageView& aImageViewOut);
-	void Destroy(ImageView& aImageView);
+	void Create(const VkImageViewCreateInfo& aImageViewCreateInfo, ImageView& aImageViewOut) const;
+	void Destroy(ImageView& aImageView) const;
 
-	void Create(const VkFramebufferCreateInfo& aFramebufferCreateInfo, Framebuffer& aFramebufferOut);
-	void Destroy(Framebuffer& aFramebuffer);
+	void Create(const VkFramebufferCreateInfo& aFramebufferCreateInfo, Framebuffer& aFramebufferOut) const;
+	void Destroy(Framebuffer& aFramebuffer) const;
 
-	void Create(const VkPipelineLayoutCreateInfo& aPipelineLayoutCreateInfo, PipelineLayout& aPipelineLayoutOut);
-	void Destroy(PipelineLayout& aPipelineLayout);
+	void Create(const VkPipelineLayoutCreateInfo& aPipelineLayoutCreateInfo, PipelineLayout& aPipelineLayoutOut) const;
+	void Destroy(PipelineLayout& aPipelineLayout) const;
 
-	void Create(const VkGraphicsPipelineCreateInfo* someGraphicsPipelineCreateInfos, Pipeline* somePipelinesOut, uint32_t aPipelineCount);
-	void Destroy(Pipeline& aPipeline);
+	void Create(const VkGraphicsPipelineCreateInfo* someGraphicsPipelineCreateInfos, Pipeline* somePipelinesOut, uint32_t aPipelineCount) const;
+	void Destroy(Pipeline& aPipeline) const;
 
-	void Create(const VkSemaphoreCreateInfo& aSemaphoreCreateInfo, Semaphore& aSemaphoreOut);
-	void Destroy(Semaphore& aSemaphore);
+	void Create(const VkSemaphoreCreateInfo& aSemaphoreCreateInfo, Semaphore& aSemaphoreOut) const;
+	void Destroy(Semaphore& aSemaphore) const;
 
-	void Create(const VkFenceCreateInfo& aFenceCreateInfo, Fence& aFenceOut);
-	void Destroy(Fence& aFence);
+	void Create(const VkFenceCreateInfo& aFenceCreateInfo, Fence& aFenceOut) const;
+	void Destroy(Fence& aFence) const;
 
-	void Create(const VkShaderModuleCreateInfo& aShaderModuleCreateInfo, ShaderModule& aShaderModuleOut);
-	void Destroy(ShaderModule& aShaderModule);
+	void Create(const VkShaderModuleCreateInfo& aShaderModuleCreateInfo, ShaderModule& aShaderModuleOut) const;
+	void Destroy(ShaderModule& aShaderModule) const;
 
-	void Create(const VkBufferCreateInfo& aBufferCreateInfo, Buffer& aBufferOut);
-	void Destroy(Buffer& aBuffer);
+	void Create(const VkBufferCreateInfo& aBufferCreateInfo, Buffer& aBufferOut) const;
+	void Destroy(Buffer& aBuffer) const;
 
-	void Create(const VkDescriptorSetLayoutCreateInfo& aDescriptorSetLayoutCreateInfo, DescriptorSetLayout& aDescriptorSetLayoutOut);
-	void Destroy(DescriptorSetLayout& aDescriptorSetLayout);
+	void Create(const VkDescriptorSetLayoutCreateInfo& aDescriptorSetLayoutCreateInfo, DescriptorSetLayout& aDescriptorSetLayoutOut) const;
+	void Destroy(DescriptorSetLayout& aDescriptorSetLayout) const;
 
-	void Create(const VkDescriptorPoolCreateInfo& aDescriptorPoolCreateInfo, DescriptorPool& aDescriptorPoolOut);
-	void Destroy(DescriptorPool& aDescriptorPool);
+	void Create(const VkDescriptorPoolCreateInfo& aDescriptorPoolCreateInfo, DescriptorPool& aDescriptorPoolOut) const;
+	void Destroy(DescriptorPool& aDescriptorPool) const;
 
-	void Create(const VkDescriptorSetAllocateInfo& aDescriptorSetAllocate, DescriptorSet* someDescriptorSetOut);
-	void Destroy(DescriptorPool& aDescriptorPool, DescriptorSet* someDescriptorSet, uint32_t aDescriptorSetCount);
-	void UpdateDescriptorSets(const VkWriteDescriptorSet* someWriteDescriptorSets, uint32_t aWriteDescriptorCount);
+	void Create(const VkDescriptorSetAllocateInfo& aDescriptorSetAllocate, DescriptorSet* someDescriptorSetOut) const;
+	void Destroy(DescriptorPool& aDescriptorPool, DescriptorSet* someDescriptorSet, uint32_t aDescriptorSetCount) const;
+	void UpdateDescriptorSets(const VkWriteDescriptorSet* someWriteDescriptorSets, uint32_t aWriteDescriptorCount) const;
 
-	void GetMemoryRequirements(const Buffer& aBuffer, VkMemoryRequirements& aMemoryRequirementsOut);
-	void AllocateDeviceMemory(VkDeviceSize aSize, uint32_t aMemoryTypeBits, VkMemoryPropertyFlags aMemoryProperties, DeviceMemory& aDeviceMemoryOut);
-	void FreeDeviceMemory(DeviceMemory& aDeviceMemory);
+	void GetMemoryRequirements(const Buffer& aBuffer, VkMemoryRequirements& aMemoryRequirementsOut) const;
+	void AllocateDeviceMemory(VkDeviceSize aSize, uint32_t aMemoryTypeBits, VkMemoryPropertyFlags aMemoryProperties, DeviceMemory& aDeviceMemoryOut) const;
+	void FreeDeviceMemory(DeviceMemory& aDeviceMemory) const;
 
-	void BindDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, Buffer& aBuffer);
-	void* MapDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, VkDeviceSize aSize);
-	void UnmapDeviceMemory(DeviceMemory& aDeviceMemory);
+	void BindDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, Buffer& aBuffer) const;
+	void* MapDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, VkDeviceSize aSize) const;
+	void UnmapDeviceMemory(DeviceMemory& aDeviceMemory) const;
 
-	void ResizeSwapchain(int aWidth, int aHeight);
-
-	uint32_t AcquireNextImage(Semaphore& aSemaphore);
-	uint32_t AcquireNextImage(Fence& aFence);
-	uint32_t AcquireNextImage(Semaphore& aSemaphore, Fence& aFence);
-	void BeginCommandBuffer(CommandBuffer& aCommandBuffer, const VkCommandBufferBeginInfo& aCommandBufferBeginInfo);
-	void EndCommandBuffer(CommandBuffer& aCommandBuffer);
-	void BeginRenderPass(CommandBuffer& aCommandBuffer, const VkRenderPassBeginInfo& aRenderPassBeginInfo);
-	void EndRenderPass(CommandBuffer& aCommandBuffer);
-	void BindPipeline(CommandBuffer& aCommandBuffer, Pipeline& aPipeline, bool isGraphicsPipeline);
-	void SetViewport(CommandBuffer& aCommandBuffer, VkViewport* someViewports, uint32_t aViewportCount, uint32_t aFirstViewport);
-	void SetScissor(CommandBuffer& aCommandBuffer, VkRect2D* someRects, uint32_t aRectCount, uint32_t aFirstRect);
-	void BindVertexBuffers(CommandBuffer& aCommandBuffer, Buffer* someBuffers, const VkDeviceSize* someOffsets, uint32_t aBufferCount);
-	void BindDescriptorSets(CommandBuffer& aCommandBuffer, PipelineLayout& aPipelineLayout, DescriptorSet* someDescriptorSets, uint32_t aDescriptorSetCount);
-	void Draw(CommandBuffer& aCommandBuffer, uint32_t aVertexCount, uint32_t aFirstVertex, uint32_t anInstanceCount, uint32_t aFirstInstance);
-	void WaitForFences(Fence* someFences, uint32_t aFenceCount);
-	void ResetFences(Fence* someFences, uint32_t aFenceCount);
-	void Submit(const VkSubmitInfo* aSubmitInfos, uint32_t aSubmitCount);
-	void Submit(const VkSubmitInfo* aSubmitInfos, uint32_t aSubmitCount, Fence& aFence);
-	void Present(Semaphore* someWaitSemaphores, uint32_t aWaitSemaphoreCount, uint32_t anImageIndex);
-	void WaitForDevice() const;
+	uint32_t GetQueueFamilyIndex(uint32_t anIndex) const { return myQueueFamilyIndices[anIndex]; }
+	Queue GetQueue(uint32_t anIndex) const { return myQueues[anIndex]; }
+	PhysicalDevice GetPhysicalDevice() const { return myPhysicalDevice; }
+	Device GetDevice() const { return myDevice; }
+	const VulkanDeviceDispatchTable& GetTable() const { return myTable; }
 
 private:
 	friend class VulkanInstanceWrapper;
 
-	uint32_t myQueueFamilyIndex = 0u;
+	uint32_t* myQueueFamilyIndices = nullptr;
+	Queue* myQueues = nullptr;
 	PhysicalDevice myPhysicalDevice;
 	Device myDevice;
-	Queue myQueue;
 	VkPhysicalDeviceMemoryProperties myMemoryProperties;
 	VulkanDeviceDispatchTable myTable;
 };
 
-class VulkanDisplayWrapper
+class VulkanCommandBufferWrapper
 {
 public:
-	// HWND for Windows
-	// Need to research other platforms
-	static void Create(const VulkanDeviceWrapper& aVulkanDeviceWrapper, const SurfaceKHR& aSurface, uint32_t aBackFramebufferCount, VulkanDisplayWrapper& aVulkanDisplayWrapper);
-	static void Destroy(VulkanDisplayWrapper& aVulkanDisplayWrapper);
+	void BeginCommandBuffer(const VkCommandBufferBeginInfo& aCommandBufferBeginInfo) const;
+	void EndCommandBuffer() const;
+	void BeginRenderPass(const VkRenderPassBeginInfo& aRenderPassBeginInfo) const;
+	void EndRenderPass() const;
+	void BindPipeline(Pipeline& aPipeline, bool isGraphicsPipeline) const;
+	void SetViewport(VkViewport* someViewports, uint32_t aViewportCount, uint32_t aFirstViewport) const;
+	void SetScissor(VkRect2D* someRects, uint32_t aRectCount, uint32_t aFirstRect) const;
+	void BindVertexBuffers(Buffer* someBuffers, const VkDeviceSize* someOffsets, uint32_t aBufferCount) const;
+	void BindDescriptorSets(PipelineLayout& aPipelineLayout, DescriptorSet* someDescriptorSets, uint32_t aDescriptorSetCount) const;
+	void Draw(uint32_t aVertexCount, uint32_t aFirstVertex, uint32_t anInstanceCount, uint32_t aFirstInstance) const;
 
 private:
-	constexpr static uint32_t ourMaxDisplayFramebuffer = 3u;
+	friend class VulkanDeviceWrapper;
 
-	uint32_t myDisplayImageCount = 3u;
-	VkFormat mySwapchainFormat;
-
-	VkSwapchainKHR mySwapchain = VK_NULL_HANDLE;
-	VkImageView myDisplayFramebufferImageViews[ourMaxDisplayFramebuffer] = { VK_NULL_HANDLE };
-	VkFramebuffer myDisplayFramebuffers[ourMaxDisplayFramebuffer] = { VK_NULL_HANDLE };
+	CommandBuffer myCommandBuffer;
+	VulkanCommandBufferDispatchTable myTable;
 };
 

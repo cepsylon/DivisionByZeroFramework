@@ -19,7 +19,6 @@ struct VulkanCommonDispatchTable
 struct VulkanInstanceDispatchTable
 {
 	void Initialize(VkInstance anInstance);
-	void Clear();
 
 	VULKAN_DISPATCH_FUNCTION(GetInstanceProcAddr);
 	VULKAN_DISPATCH_FUNCTION(GetDeviceProcAddr);
@@ -48,24 +47,13 @@ struct VulkanInstanceDispatchTable
 
 struct VulkanDeviceDispatchTable
 {
-	void Initialize(VkDevice aDevice, VkInstance anInstance, PFN_vkGetDeviceProcAddr getDeviceProcAddr);
-	void Clear();
+	void Initialize(VkDevice aDevice, PFN_vkGetDeviceProcAddr getDeviceProcAddr);
 
 	VULKAN_DISPATCH_FUNCTION(GetDeviceProcAddr);
 
 	VULKAN_DISPATCH_FUNCTION(GetDeviceQueue);
 	VULKAN_DISPATCH_FUNCTION(DeviceWaitIdle);
 	VULKAN_DISPATCH_FUNCTION(AcquireNextImageKHR);
-	VULKAN_DISPATCH_FUNCTION(BeginCommandBuffer);
-	VULKAN_DISPATCH_FUNCTION(EndCommandBuffer);
-	VULKAN_DISPATCH_FUNCTION(CmdBeginRenderPass);
-	VULKAN_DISPATCH_FUNCTION(CmdEndRenderPass);
-	VULKAN_DISPATCH_FUNCTION(CmdBindPipeline);
-	VULKAN_DISPATCH_FUNCTION(CmdSetViewport);
-	VULKAN_DISPATCH_FUNCTION(CmdSetScissor);
-	VULKAN_DISPATCH_FUNCTION(CmdBindDescriptorSets);
-	VULKAN_DISPATCH_FUNCTION(CmdBindVertexBuffers);
-	VULKAN_DISPATCH_FUNCTION(CmdDraw);
 
 	VULKAN_DISPATCH_FUNCTION(CreateSwapchainKHR);
 	VULKAN_DISPATCH_FUNCTION(DestroySwapchainKHR);
@@ -131,4 +119,20 @@ struct VulkanDeviceDispatchTable
 	VULKAN_DISPATCH_FUNCTION(QueuePresentKHR);
 };
 
-#undef DispatchFunction
+struct VulkanCommandBufferDispatchTable
+{
+	void Initialize(VkDevice aDevice, PFN_vkGetDeviceProcAddr getDeviceProcAddr);
+
+	VULKAN_DISPATCH_FUNCTION(BeginCommandBuffer);
+	VULKAN_DISPATCH_FUNCTION(EndCommandBuffer);
+	VULKAN_DISPATCH_FUNCTION(CmdBeginRenderPass);
+	VULKAN_DISPATCH_FUNCTION(CmdEndRenderPass);
+	VULKAN_DISPATCH_FUNCTION(CmdBindPipeline);
+	VULKAN_DISPATCH_FUNCTION(CmdSetViewport);
+	VULKAN_DISPATCH_FUNCTION(CmdSetScissor);
+	VULKAN_DISPATCH_FUNCTION(CmdBindDescriptorSets);
+	VULKAN_DISPATCH_FUNCTION(CmdBindVertexBuffers);
+	VULKAN_DISPATCH_FUNCTION(CmdDraw);
+};
+
+#undef VULKAN_DISPATCH_FUNCTION

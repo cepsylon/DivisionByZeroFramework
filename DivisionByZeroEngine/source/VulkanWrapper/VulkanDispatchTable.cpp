@@ -37,12 +37,7 @@ void VulkanInstanceDispatchTable::Initialize(VkInstance anInstance)
 #undef INITIALIZE_VULKAN_INSTANCE_FUNCTION
 }
 
-void VulkanInstanceDispatchTable::Clear()
-{
-	memset(this, 0, sizeof(*this));
-}
-
-void VulkanDeviceDispatchTable::Initialize(VkDevice aDevice, VkInstance anInstance, PFN_vkGetDeviceProcAddr getDeviceProcAddr)
+void VulkanDeviceDispatchTable::Initialize(VkDevice aDevice, PFN_vkGetDeviceProcAddr getDeviceProcAddr)
 {
 #define INITIALIZE_VULKAN_DEVICE_FUNCTION(name) INITIALIZE_VULKAN_FUNCTION(myGetDeviceProcAddr, aDevice, name)
 
@@ -51,16 +46,6 @@ void VulkanDeviceDispatchTable::Initialize(VkDevice aDevice, VkInstance anInstan
 	INITIALIZE_VULKAN_DEVICE_FUNCTION(GetDeviceQueue);
 	INITIALIZE_VULKAN_DEVICE_FUNCTION(DeviceWaitIdle);
 	INITIALIZE_VULKAN_DEVICE_FUNCTION(AcquireNextImageKHR);
-	INITIALIZE_VULKAN_DEVICE_FUNCTION(BeginCommandBuffer);
-	INITIALIZE_VULKAN_DEVICE_FUNCTION(EndCommandBuffer);
-	INITIALIZE_VULKAN_DEVICE_FUNCTION(CmdBeginRenderPass);
-	INITIALIZE_VULKAN_DEVICE_FUNCTION(CmdEndRenderPass);
-	INITIALIZE_VULKAN_DEVICE_FUNCTION(CmdBindPipeline);
-	INITIALIZE_VULKAN_DEVICE_FUNCTION(CmdSetViewport);
-	INITIALIZE_VULKAN_DEVICE_FUNCTION(CmdSetScissor);
-	INITIALIZE_VULKAN_DEVICE_FUNCTION(CmdBindDescriptorSets);
-	INITIALIZE_VULKAN_DEVICE_FUNCTION(CmdBindVertexBuffers);
-	INITIALIZE_VULKAN_DEVICE_FUNCTION(CmdDraw);
 
 	INITIALIZE_VULKAN_DEVICE_FUNCTION(CreateSwapchainKHR);
 	INITIALIZE_VULKAN_DEVICE_FUNCTION(DestroySwapchainKHR);
@@ -128,7 +113,20 @@ void VulkanDeviceDispatchTable::Initialize(VkDevice aDevice, VkInstance anInstan
 #undef INITIALIZE_VULKAN_DEVICE_FUNCTION
 }
 
-void VulkanDeviceDispatchTable::Clear()
+void VulkanCommandBufferDispatchTable::Initialize(VkDevice aDevice, PFN_vkGetDeviceProcAddr getDeviceProcAddr)
 {
-	memset(this, 0, sizeof(*this));
+#define INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION(name) INITIALIZE_VULKAN_FUNCTION(getDeviceProcAddr, aDevice, name)
+
+	INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION(BeginCommandBuffer);
+	INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION(EndCommandBuffer);
+	INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION(CmdBeginRenderPass);
+	INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION(CmdEndRenderPass);
+	INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION(CmdBindPipeline);
+	INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION(CmdSetViewport);
+	INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION(CmdSetScissor);
+	INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION(CmdBindDescriptorSets);
+	INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION(CmdBindVertexBuffers);
+	INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION(CmdDraw);
+
+#undef INITIALIZE_VULKAN_COMMAND_BUFFER_FUNCTION
 }

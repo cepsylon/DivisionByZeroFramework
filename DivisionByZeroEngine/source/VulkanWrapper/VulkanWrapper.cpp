@@ -196,8 +196,7 @@ void VulkanInstanceWrapper::Destroy(VulkanInstanceWrapper& aVulkanInstanceWrappe
 	table.myDestroyInstance(instance, nullptr);
 
 #if IS_DEBUG_BUILD
-	instance = VK_NULL_HANDLE;
-	table.Clear();
+	memset(&aVulkanInstanceWrapper, 0, sizeof(aVulkanInstanceWrapper));
 #endif // IS_DEBUG_BUILD
 
 	VulkanModule::Unload();
@@ -230,6 +229,16 @@ bool VulkanInstanceWrapper::GetPhysicalDeviceSurfaceSupportKHR(const PhysicalDev
 	return hasSupportForSurface;
 }
 
+void VulkanInstanceWrapper::GetPhysicalDeviceSurfaceFormatsKHR(const PhysicalDevice& aPhysicalDevice, const SurfaceKHR& aSurface, uint32_t& aSurfaceFormatCount, VkSurfaceFormatKHR* someSurfaceFormatsOut) const
+{
+	VULKAN_CHECK_VALID_RESULT(myTable.myGetPhysicalDeviceSurfaceFormatsKHR(Unwrap(aPhysicalDevice), Unwrap(aSurface), &aSurfaceFormatCount, someSurfaceFormatsOut));
+}
+
+void VulkanInstanceWrapper::GetPhysicalDeviceSurfaceCapabilitiesKHR(const PhysicalDevice& aPhysicalDevice, const SurfaceKHR& aSurface, VkSurfaceCapabilitiesKHR& aSurfaceCapabilitiesKHROut) const
+{
+	VULKAN_CHECK_VALID_RESULT(myTable.myGetPhysicalDeviceSurfaceCapabilitiesKHR(Unwrap(aPhysicalDevice), Unwrap(aSurface), &aSurfaceCapabilitiesKHROut));
+}
+
 void VulkanInstanceWrapper::GetPhysicalDeviceMemoryProperties(const PhysicalDevice& aPhysicalDevice, VkPhysicalDeviceMemoryProperties& aPhysicalDeviceMemoryPropertiesOut) const
 {
 	myTable.myGetPhysicalDeviceMemoryProperties(Unwrap(aPhysicalDevice), &aPhysicalDeviceMemoryPropertiesOut);
@@ -240,18 +249,31 @@ void VulkanInstanceWrapper::EnumerateDeviceExtensionProperties(const PhysicalDev
 	VULKAN_CHECK_VALID_RESULT(myTable.myEnumerateDeviceExtensionProperties(Unwrap(aPhysicalDevice), aLayerName, &aPropertyCount, someExtensionPropertiesOut));
 }
 
-void VulkanInstanceWrapper::Create(const VkDeviceCreateInfo& aDeviceCreateInfo, const PhysicalDevice& aPhysicalDevice, Device& aDeviceOut) const
+void VulkanInstanceWrapper::Create(const PhysicalDevice& aPhysicalDevice, const VkDeviceCreateInfo& aDeviceCreateInfo, VulkanDeviceWrapper& aVulkanDeviceWrapperOut) const
 {
-	VULKAN_CHECK_VALID_RESULT(myTable.myCreateDevice(Unwrap(aPhysicalDevice), &aDeviceCreateInfo, nullptr, Unwrap(&aDeviceOut)));
+	aVulkanDeviceWrapperOut.myQueueFamilyIndices = static_cast<uint32_t*>(malloc(sizeof(uint32_t) * aDeviceCreateInfo.queueCreateInfoCount));
+	aVulkanDeviceWrapperOut.myQueues = static_cast<Queue*>(malloc(sizeof(Queue) * aDeviceCreateInfo.queueCreateInfoCount));
+	aVulkanDeviceWrapperOut.myPhysicalDevice = aPhysicalDevice;
+	VULKAN_CHECK_VALID_RESULT(myTable.myCreateDevice(Unwrap(aPhysicalDevice), &aDeviceCreateInfo, nullptr, Unwrap(&aVulkanDeviceWrapperOut.myDevice)));
+	GetPhysicalDeviceMemoryProperties(aPhysicalDevice, aVulkanDeviceWrapperOut.myMemoryProperties);
+	aVulkanDeviceWrapperOut.myTable.Initialize(Unwrap(aVulkanDeviceWrapperOut.myDevice), myTable.myGetDeviceProcAddr);
+
+	for (uint32_t i = 0; i < aDeviceCreateInfo.queueCreateInfoCount; ++i)
+	{
+		uint32_t queueFamilyIndex = aDeviceCreateInfo.pQueueCreateInfos[i].queueFamilyIndex;
+		aVulkanDeviceWrapperOut.myQueueFamilyIndices[i] = queueFamilyIndex;
+		aVulkanDeviceWrapperOut.myTable.myGetDeviceQueue(Unwrap(aVulkanDeviceWrapperOut.myDevice), queueFamilyIndex, 0, Unwrap(&aVulkanDeviceWrapperOut.myQueues[i]));
+	}
 }
 
-void VulkanInstanceWrapper::Destroy(Device& aDevice) const
+void VulkanInstanceWrapper::Destroy(VulkanDeviceWrapper& aVulkanDeviceWrapper) const
 {
-	VkDevice& device = Unwrap(aDevice);
-	myTable.myDestroyDevice(device, nullptr);
+	free(aVulkanDeviceWrapper.myQueueFamilyIndices);
+	free(aVulkanDeviceWrapper.myQueues);
+	myTable.myDestroyDevice(Unwrap(aVulkanDeviceWrapper.myDevice), nullptr);
 
 #if IS_DEBUG_BUILD
-	device = VK_NULL_HANDLE;
+	memset(&aVulkanDeviceWrapper, 0, sizeof(aVulkanDeviceWrapper));
 #endif // IS_DEBUG_BUILD
 }
 
@@ -282,119 +304,53 @@ void VulkanInstanceWrapper::Destroy(SurfaceKHR& aSurface) const
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanInstanceWrapper::Create(VulkanDeviceWrapper& aVulkanDeviceWrapperOut) const
+uint32_t VulkanDeviceWrapper::AcquireNextImage(const SwapchainKHR& aSwapchain, const Semaphore* aSemaphore, const Fence* aFence) const
 {
-	uint32_t physicalDeviceCount = 0u;
-	EnumeratePhysicalDevices(physicalDeviceCount, nullptr);
-	std::vector<PhysicalDevice> physicalDevices(physicalDeviceCount);
-	EnumeratePhysicalDevices(physicalDeviceCount, physicalDevices.data());
-
-	if (physicalDevices.empty())
-		Debug::Breakpoint();
-
-	// Choose best physical device to create device with
-	uint32_t bestPhysicalDeviceIndex = 0u;
-	uint32_t maxScore = 0u;
-	for (uint32_t i = 0; i < physicalDeviceCount; ++i)
-	{
-		// Give a score to the physical device. (Somehow)
-		PhysicalDevice device = physicalDevices[i];
-		uint32_t score = 0u;
-		uint32_t graphicsQueueFamilyIndex = 0u;
-
-		// Device properties
-		VkPhysicalDeviceProperties properties;
-		GetPhysicalDeviceProperties(device, properties);
-		score += properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ? 100u : 0u;
-
-		// Device features
-		VkPhysicalDeviceFeatures features;
-		GetPhysicalDeviceFeatures(device, features);
-
-		// Device queue family properties
-		uint32_t familyPropertyCount = 0u;
-		std::vector<VkQueueFamilyProperties> familyProperties;
-		GetPhysicalDeviceQueueFamilyProperties(device, familyPropertyCount, nullptr);
-		familyProperties.resize(familyPropertyCount);
-		GetPhysicalDeviceQueueFamilyProperties(device, familyPropertyCount, familyProperties.data());
-
-		for (uint32_t j = 0; j < familyPropertyCount; ++j)
-		{
-			const VkQueueFamilyProperties& properties = familyProperties[j];
-
-			//// Check if the queue family has presentation support for KHR
-			//VkBool32 hasPresentationSupportKHR = GetPhysicalDeviceSurfaceSupportKHR(device, j, mySurface);
-			//if (hasPresentationSupportKHR == VK_FALSE)
-			//	continue;
-
-			// Check if the queue family has a graphics queue
-			if (properties.queueCount > 0 && properties.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-			{
-				graphicsQueueFamilyIndex = j;
-				break;
-			}
-		}
-
-		// Device memory properties
-		VkPhysicalDeviceMemoryProperties memoryProperties;
-		GetPhysicalDeviceMemoryProperties(device, memoryProperties);
-
-		if (maxScore < score)
-		{
-			maxScore = score;
-			bestPhysicalDeviceIndex = i;
-			aVulkanDeviceWrapperOut.myQueueFamilyIndex = graphicsQueueFamilyIndex;
-		}
-	}
-
-
-	// Create device
-	float queuePriority = 1.0f;
-	VkDeviceQueueCreateInfo queueInfo{
-		VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-		nullptr,
-		0,
-		aVulkanDeviceWrapperOut.myQueueFamilyIndex,
-		1,
-		&queuePriority
-	};
-
-	const char* deviceExtensions[] =
-	{
-		"VK_KHR_swapchain"
-	};
-	uint32_t deviceExtensionCount = sizeof(deviceExtensions) / sizeof(const char*);
-
-	// TODO: Check for wanted extensions
-	uint32_t physicalDeviceExtensionCount = 0u;
-	aVulkanDeviceWrapperOut.myPhysicalDevice = physicalDevices[bestPhysicalDeviceIndex];
-	EnumerateDeviceExtensionProperties(aVulkanDeviceWrapperOut.myPhysicalDevice, nullptr, physicalDeviceExtensionCount, nullptr);
-
-	VkDeviceCreateInfo deviceCreateInfo{
-		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		nullptr,
-		0,
-		1,
-		&queueInfo,
-		0,
-		nullptr,
-		deviceExtensionCount,
-		deviceExtensions,
-		nullptr
-	};
-	Create(deviceCreateInfo, aVulkanDeviceWrapperOut.myPhysicalDevice, aVulkanDeviceWrapperOut.myDevice);
-	GetPhysicalDeviceMemoryProperties(aVulkanDeviceWrapperOut.myPhysicalDevice, aVulkanDeviceWrapperOut.myMemoryProperties);
-	aVulkanDeviceWrapperOut.myTable.Initialize(Unwrap(aVulkanDeviceWrapperOut.myDevice), Unwrap(myInstance), myTable.myGetDeviceProcAddr);
-	aVulkanDeviceWrapperOut.myTable.myGetDeviceQueue(Unwrap(aVulkanDeviceWrapperOut.myDevice), aVulkanDeviceWrapperOut.myQueueFamilyIndex, 0, Unwrap(&aVulkanDeviceWrapperOut.myQueue));
+	VkSemaphore semaphore = aSemaphore ? Unwrap(*aSemaphore) : VK_NULL_HANDLE;
+	VkFence fence = aFence ? Unwrap(*aFence) : VK_NULL_HANDLE;
+	uint32_t imageIndex;
+	VULKAN_CHECK_VALID_RESULT(myTable.myAcquireNextImageKHR(Unwrap(myDevice), Unwrap(aSwapchain), UINT64_MAX, semaphore, fence, &imageIndex));
+	return imageIndex;
 }
 
-void VulkanInstanceWrapper::Destroy(VulkanDeviceWrapper& aVulkanDeviceWrapper) const
+void VulkanDeviceWrapper::GetSwapchainImagesKHR(const SwapchainKHR& aSwapchain, uint32_t& aSwapchainImageCount, Image* someSwapchainImagesOut) const
 {
-	myTable.myDestroyDevice(Unwrap(aVulkanDeviceWrapper.myDevice), nullptr);
+	VULKAN_CHECK_VALID_RESULT(myTable.myGetSwapchainImagesKHR(Unwrap(myDevice), Unwrap(aSwapchain), &aSwapchainImageCount, Unwrap(someSwapchainImagesOut)));
+}
 
-#if IS_DEBUG_BUILD
-	memset(&aVulkanDeviceWrapper, 0, sizeof(aVulkanDeviceWrapper));
-#endif // IS_DEBUG_BUILD
+void VulkanDeviceWrapper::WaitForFences(Fence* someFences, uint32_t aFenceCount) const
+{
+	VULKAN_CHECK_VALID_RESULT(myTable.myWaitForFences(Unwrap(myDevice), aFenceCount, Unwrap(someFences), VK_TRUE, UINT64_MAX));
+}
+
+void VulkanDeviceWrapper::ResetFences(Fence* someFences, uint32_t aFenceCount) const
+{
+	VULKAN_CHECK_VALID_RESULT(myTable.myResetFences(Unwrap(myDevice), aFenceCount, Unwrap(someFences)));
+}
+
+void VulkanDeviceWrapper::Submit(uint32_t aQueueIndex, const VkSubmitInfo* someSubmitInfos, uint32_t aSubmitCount, const Fence* aFence) const
+{
+	VkFence fence = aFence ? Unwrap(*aFence) : VK_NULL_HANDLE;
+	VULKAN_CHECK_VALID_RESULT(myTable.myQueueSubmit(Unwrap(myQueues[aQueueIndex]), aSubmitCount, someSubmitInfos, fence));
+}
+
+void VulkanDeviceWrapper::Present(const VkPresentInfoKHR& aPresentInfoKHR, uint32_t aQueueIndex) const
+{
+	VkResult result = myTable.myQueuePresentKHR(Unwrap(myQueues[aQueueIndex]), &aPresentInfoKHR);
+	if (result != VK_SUCCESS)
+	{
+		if (result == VK_ERROR_OUT_OF_DATE_KHR)
+			Debug::PrintToOutput("ERROR: OUT_OF_DATE_KHR\n");
+		else if (result == VK_ERROR_SURFACE_LOST_KHR)
+			Debug::PrintToOutput("ERROR: SURFACE_LOST_KHR\n");
+		else
+			Debug::Breakpoint();
+	}
+}
+
+void VulkanDeviceWrapper::WaitForDevice() const
+{
+	VULKAN_CHECK_VALID_RESULT(myTable.myDeviceWaitIdle(Unwrap(myDevice)));
 }
 
 void VulkanDeviceWrapper::Create(const VkSwapchainCreateInfoKHR& aSwapchainCreateInfoKHR, SwapchainKHR& aSwapchainOut) const
@@ -412,13 +368,13 @@ void VulkanDeviceWrapper::Destroy(SwapchainKHR& aSwapchain) const
 #endif
 }
 
-void VulkanDeviceWrapper::Create(const VkCommandPoolCreateInfo& aCommandPoolCreateInfo, CommandPool& aCommandPoolOut)
+void VulkanDeviceWrapper::Create(const VkCommandPoolCreateInfo& aCommandPoolCreateInfo, CommandPool& aCommandPoolOut) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreateCommandPool(Unwrap(myDevice), &aCommandPoolCreateInfo, nullptr, Unwrap(&aCommandPoolOut)));
 }
 
-void VulkanDeviceWrapper::Destroy(CommandPool& aCommandPool)
+void VulkanDeviceWrapper::Destroy(CommandPool& aCommandPool) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkCommandPool& commandPool = Unwrap(aCommandPool);
@@ -429,30 +385,42 @@ void VulkanDeviceWrapper::Destroy(CommandPool& aCommandPool)
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::Create(const VkCommandBufferAllocateInfo& aCommandBufferAllocateInfo, CommandBuffer* someCommandBuffersOut)
+void VulkanDeviceWrapper::Create(const VkCommandBufferAllocateInfo& aCommandBufferAllocateInfo, VulkanCommandBufferWrapper* someVulkanCommandBufferWrappers) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
-	VULKAN_CHECK_VALID_RESULT(table.myAllocateCommandBuffers(Unwrap(myDevice), &aCommandBufferAllocateInfo, Unwrap(someCommandBuffersOut)));
+	CommandBuffer* commandBuffers = static_cast<CommandBuffer*>(alloca(sizeof(CommandBuffer) * aCommandBufferAllocateInfo.commandBufferCount));
+	VULKAN_CHECK_VALID_RESULT(table.myAllocateCommandBuffers(Unwrap(myDevice), &aCommandBufferAllocateInfo, Unwrap(commandBuffers)));
+
+	VulkanCommandBufferDispatchTable commandBufferTable;
+	commandBufferTable.Initialize(Unwrap(myDevice), myTable.myGetDeviceProcAddr);
+	for (uint32_t i = 0; i < aCommandBufferAllocateInfo.commandBufferCount; ++i)
+	{
+		someVulkanCommandBufferWrappers[i].myCommandBuffer = commandBuffers[i];
+		someVulkanCommandBufferWrappers[i].myTable = commandBufferTable;
+	}
 }
 
-void VulkanDeviceWrapper::Destroy(CommandPool& aCommandPool, CommandBuffer* someCommandBuffers, uint32_t aCommandBufferCount)
+void VulkanDeviceWrapper::Destroy(CommandPool& aCommandPool, VulkanCommandBufferWrapper* someCommandBuffers, uint32_t aCommandBufferCount) const
 {
+	CommandBuffer* commandBuffers = static_cast<CommandBuffer*>(alloca(sizeof(CommandBuffer) * aCommandBufferCount));
+	for (uint32_t i = 0; i < aCommandBufferCount; ++i)
+		commandBuffers[i] = someCommandBuffers[i].myCommandBuffer;
+
 	const VulkanDeviceDispatchTable& table = myTable;
-	VkCommandBuffer* commandBuffers = Unwrap(someCommandBuffers);
-	table.myFreeCommandBuffers(Unwrap(myDevice), Unwrap(aCommandPool), aCommandBufferCount, commandBuffers);
+	table.myFreeCommandBuffers(Unwrap(myDevice), Unwrap(aCommandPool), aCommandBufferCount, Unwrap(commandBuffers));
 
 #if IS_DEBUG_BUILD
-	std::memset(commandBuffers, 0, sizeof(VkCommandBuffer) * aCommandBufferCount);
+	std::memset(someCommandBuffers, 0, sizeof(VulkanCommandBufferWrapper) * aCommandBufferCount);
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::Create(const VkRenderPassCreateInfo& aRenderPassCreateInfo, RenderPass& aRenderPass)
+void VulkanDeviceWrapper::Create(const VkRenderPassCreateInfo& aRenderPassCreateInfo, RenderPass& aRenderPass) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreateRenderPass(Unwrap(myDevice), &aRenderPassCreateInfo, nullptr, Unwrap(&aRenderPass)));
 }
 
-void VulkanDeviceWrapper::Destroy(RenderPass& aRenderPass)
+void VulkanDeviceWrapper::Destroy(RenderPass& aRenderPass) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkRenderPass& renderPass = Unwrap(aRenderPass);
@@ -463,13 +431,13 @@ void VulkanDeviceWrapper::Destroy(RenderPass& aRenderPass)
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::Create(const VkImageViewCreateInfo& aImageViewCreateInfo, ImageView& aImageViewOut)
+void VulkanDeviceWrapper::Create(const VkImageViewCreateInfo& aImageViewCreateInfo, ImageView& aImageViewOut) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreateImageView(Unwrap(myDevice), &aImageViewCreateInfo, nullptr, Unwrap(&aImageViewOut)));
 }
 
-void VulkanDeviceWrapper::Destroy(ImageView& aImageView)
+void VulkanDeviceWrapper::Destroy(ImageView& aImageView) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkImageView& imageView = Unwrap(aImageView);
@@ -480,13 +448,13 @@ void VulkanDeviceWrapper::Destroy(ImageView& aImageView)
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::Create(const VkFramebufferCreateInfo& aFramebufferCreateInfo, Framebuffer& aFramebufferOut)
+void VulkanDeviceWrapper::Create(const VkFramebufferCreateInfo& aFramebufferCreateInfo, Framebuffer& aFramebufferOut) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreateFramebuffer(Unwrap(myDevice), &aFramebufferCreateInfo, nullptr, Unwrap(&aFramebufferOut)));
 }
 
-void VulkanDeviceWrapper::Destroy(Framebuffer& aFramebuffer)
+void VulkanDeviceWrapper::Destroy(Framebuffer& aFramebuffer) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkFramebuffer& framebuffer = Unwrap(aFramebuffer);
@@ -497,13 +465,13 @@ void VulkanDeviceWrapper::Destroy(Framebuffer& aFramebuffer)
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::Create(const VkPipelineLayoutCreateInfo& aPipelineLayoutCreateInfo, PipelineLayout& aPipelineLayoutOut)
+void VulkanDeviceWrapper::Create(const VkPipelineLayoutCreateInfo& aPipelineLayoutCreateInfo, PipelineLayout& aPipelineLayoutOut) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreatePipelineLayout(Unwrap(myDevice), &aPipelineLayoutCreateInfo, nullptr, Unwrap(&aPipelineLayoutOut)));
 }
 
-void VulkanDeviceWrapper::Destroy(PipelineLayout& aPipelineLayout)
+void VulkanDeviceWrapper::Destroy(PipelineLayout& aPipelineLayout) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkPipelineLayout& pipelineLayout = Unwrap(aPipelineLayout);
@@ -514,13 +482,13 @@ void VulkanDeviceWrapper::Destroy(PipelineLayout& aPipelineLayout)
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::Create(const VkGraphicsPipelineCreateInfo* someGraphicsPipelineCreateInfos, Pipeline* somePipelinesOut, uint32_t aPipelineCount)
+void VulkanDeviceWrapper::Create(const VkGraphicsPipelineCreateInfo* someGraphicsPipelineCreateInfos, Pipeline* somePipelinesOut, uint32_t aPipelineCount) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreateGraphicsPipelines(Unwrap(myDevice), VK_NULL_HANDLE, aPipelineCount, someGraphicsPipelineCreateInfos, nullptr, Unwrap(somePipelinesOut)));
 }
 
-void VulkanDeviceWrapper::Destroy(Pipeline& aPipeline)
+void VulkanDeviceWrapper::Destroy(Pipeline& aPipeline) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkPipeline& pipeline = Unwrap(aPipeline);
@@ -531,13 +499,13 @@ void VulkanDeviceWrapper::Destroy(Pipeline& aPipeline)
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::Create(const VkSemaphoreCreateInfo& aSemaphoreCreateInfo, Semaphore& aSemaphoreOut)
+void VulkanDeviceWrapper::Create(const VkSemaphoreCreateInfo& aSemaphoreCreateInfo, Semaphore& aSemaphoreOut) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreateSemaphore(Unwrap(myDevice), &aSemaphoreCreateInfo, nullptr, Unwrap(&aSemaphoreOut)));
 }
 
-void VulkanDeviceWrapper::Destroy(Semaphore& aSemaphore)
+void VulkanDeviceWrapper::Destroy(Semaphore& aSemaphore) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkSemaphore& semaphore = Unwrap(aSemaphore);
@@ -548,13 +516,13 @@ void VulkanDeviceWrapper::Destroy(Semaphore& aSemaphore)
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::Create(const VkFenceCreateInfo& aFenceCreateInfo, Fence& aFenceOut)
+void VulkanDeviceWrapper::Create(const VkFenceCreateInfo& aFenceCreateInfo, Fence& aFenceOut) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreateFence(Unwrap(myDevice), &aFenceCreateInfo, nullptr, Unwrap(&aFenceOut)));
 }
 
-void VulkanDeviceWrapper::Destroy(Fence& aFence)
+void VulkanDeviceWrapper::Destroy(Fence& aFence) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkFence& fence = Unwrap(aFence);
@@ -565,13 +533,13 @@ void VulkanDeviceWrapper::Destroy(Fence& aFence)
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::Create(const VkShaderModuleCreateInfo& aShaderModuleCreateInfo, ShaderModule& aShaderModuleOut)
+void VulkanDeviceWrapper::Create(const VkShaderModuleCreateInfo& aShaderModuleCreateInfo, ShaderModule& aShaderModuleOut) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreateShaderModule(Unwrap(myDevice), &aShaderModuleCreateInfo, nullptr, Unwrap(&aShaderModuleOut)));
 }
 
-void VulkanDeviceWrapper::Destroy(ShaderModule& aShaderModule)
+void VulkanDeviceWrapper::Destroy(ShaderModule& aShaderModule) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkShaderModule& shaderModule = Unwrap(aShaderModule);
@@ -582,13 +550,13 @@ void VulkanDeviceWrapper::Destroy(ShaderModule& aShaderModule)
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::Create(const VkBufferCreateInfo& aBufferCreateInfo, Buffer& aBufferOut)
+void VulkanDeviceWrapper::Create(const VkBufferCreateInfo& aBufferCreateInfo, Buffer& aBufferOut) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreateBuffer(Unwrap(myDevice), &aBufferCreateInfo, nullptr, Unwrap(&aBufferOut)));
 }
 
-void VulkanDeviceWrapper::Destroy(Buffer& aBuffer)
+void VulkanDeviceWrapper::Destroy(Buffer& aBuffer) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkBuffer& buffer = Unwrap(aBuffer);
@@ -599,13 +567,13 @@ void VulkanDeviceWrapper::Destroy(Buffer& aBuffer)
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::Create(const VkDescriptorSetLayoutCreateInfo& aDescriptorSetLayoutCreateInfo, DescriptorSetLayout& aDescriptorSetLayoutOut)
+void VulkanDeviceWrapper::Create(const VkDescriptorSetLayoutCreateInfo& aDescriptorSetLayoutCreateInfo, DescriptorSetLayout& aDescriptorSetLayoutOut) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreateDescriptorSetLayout(Unwrap(myDevice), &aDescriptorSetLayoutCreateInfo, nullptr, Unwrap(&aDescriptorSetLayoutOut)));
 }
 
-void VulkanDeviceWrapper::Destroy(DescriptorSetLayout& aDescriptorSetLayout)
+void VulkanDeviceWrapper::Destroy(DescriptorSetLayout& aDescriptorSetLayout) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkDescriptorSetLayout& descriptorSetLayout = Unwrap(aDescriptorSetLayout);
@@ -616,13 +584,13 @@ void VulkanDeviceWrapper::Destroy(DescriptorSetLayout& aDescriptorSetLayout)
 #endif
 }
 
-void VulkanDeviceWrapper::Create(const VkDescriptorPoolCreateInfo& aDescriptorPoolCreateInfo, DescriptorPool& aDescriptorPoolOut)
+void VulkanDeviceWrapper::Create(const VkDescriptorPoolCreateInfo& aDescriptorPoolCreateInfo, DescriptorPool& aDescriptorPoolOut) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myCreateDescriptorPool(Unwrap(myDevice), &aDescriptorPoolCreateInfo, nullptr, Unwrap(&aDescriptorPoolOut)));
 }
 
-void VulkanDeviceWrapper::Destroy(DescriptorPool& aDescriptorPool)
+void VulkanDeviceWrapper::Destroy(DescriptorPool& aDescriptorPool) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkDescriptorPool& descriptorPool = Unwrap(aDescriptorPool);
@@ -633,13 +601,13 @@ void VulkanDeviceWrapper::Destroy(DescriptorPool& aDescriptorPool)
 #endif
 }
 
-void VulkanDeviceWrapper::Create(const VkDescriptorSetAllocateInfo& aDescriptorSetAllocateInfo, DescriptorSet* someDescriptorSets)
+void VulkanDeviceWrapper::Create(const VkDescriptorSetAllocateInfo& aDescriptorSetAllocateInfo, DescriptorSet* someDescriptorSets) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VULKAN_CHECK_VALID_RESULT(table.myAllocateDescriptorSets(Unwrap(myDevice), &aDescriptorSetAllocateInfo, Unwrap(someDescriptorSets)));
 }
 
-void VulkanDeviceWrapper::Destroy(DescriptorPool& aDescriptorPool, DescriptorSet* someDescriptorSet, uint32_t aDescriptorSetCount)
+void VulkanDeviceWrapper::Destroy(DescriptorPool& aDescriptorPool, DescriptorSet* someDescriptorSet, uint32_t aDescriptorSetCount) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkDescriptorSet* descriptorSet = Unwrap(someDescriptorSet);
@@ -649,19 +617,19 @@ void VulkanDeviceWrapper::Destroy(DescriptorPool& aDescriptorPool, DescriptorSet
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::UpdateDescriptorSets(const VkWriteDescriptorSet* someWriteDescriptorSets, uint32_t aWriteDescriptorCount)
+void VulkanDeviceWrapper::UpdateDescriptorSets(const VkWriteDescriptorSet* someWriteDescriptorSets, uint32_t aWriteDescriptorCount) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	table.myUpdateDescriptorSets(Unwrap(myDevice), aWriteDescriptorCount, someWriteDescriptorSets, 0, nullptr);
 }
 
-void VulkanDeviceWrapper::GetMemoryRequirements(const Buffer& aBuffer, VkMemoryRequirements& aMemoryRequirementsOut)
+void VulkanDeviceWrapper::GetMemoryRequirements(const Buffer& aBuffer, VkMemoryRequirements& aMemoryRequirementsOut) const
 {
 	const VulkanDeviceDispatchTable& deviceTable = myTable;
 	deviceTable.myGetBufferMemoryRequirements(Unwrap(myDevice), Unwrap(aBuffer), &aMemoryRequirementsOut);
 }
 
-void VulkanDeviceWrapper::AllocateDeviceMemory(VkDeviceSize aSize, uint32_t aMemoryTypeBits, VkMemoryPropertyFlags aMemoryProperties, DeviceMemory& aDeviceMemoryOut)
+void VulkanDeviceWrapper::AllocateDeviceMemory(VkDeviceSize aSize, uint32_t aMemoryTypeBits, VkMemoryPropertyFlags aMemoryProperties, DeviceMemory& aDeviceMemoryOut) const
 {
 	// Get physical device memory properties
 	const VulkanDeviceDispatchTable& deviceTable = myTable;
@@ -696,7 +664,7 @@ void VulkanDeviceWrapper::AllocateDeviceMemory(VkDeviceSize aSize, uint32_t aMem
 	deviceTable.myAllocateMemory(Unwrap(myDevice), &memoryAllocateInfo, nullptr, Unwrap(&aDeviceMemoryOut));
 }
 
-void VulkanDeviceWrapper::FreeDeviceMemory(DeviceMemory& aDeviceMemory)
+void VulkanDeviceWrapper::FreeDeviceMemory(DeviceMemory& aDeviceMemory) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	VkDeviceMemory& deviceMemory = Unwrap(aDeviceMemory);
@@ -707,13 +675,13 @@ void VulkanDeviceWrapper::FreeDeviceMemory(DeviceMemory& aDeviceMemory)
 #endif // IS_DEBUG_BUILD
 }
 
-void VulkanDeviceWrapper::BindDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, Buffer& aBuffer)
+void VulkanDeviceWrapper::BindDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, Buffer& aBuffer) const
 {
 	const VulkanDeviceDispatchTable& deviceTable = myTable;
 	deviceTable.myBindBufferMemory(Unwrap(myDevice), Unwrap(aBuffer), Unwrap(aDeviceMemory), anOffset);
 }
 
-void* VulkanDeviceWrapper::MapDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, VkDeviceSize aSize)
+void* VulkanDeviceWrapper::MapDeviceMemory(DeviceMemory& aDeviceMemory, VkDeviceSize anOffset, VkDeviceSize aSize) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 
@@ -722,210 +690,62 @@ void* VulkanDeviceWrapper::MapDeviceMemory(DeviceMemory& aDeviceMemory, VkDevice
 	return mappedMemory;
 }
 
-void VulkanDeviceWrapper::UnmapDeviceMemory(DeviceMemory& aDeviceMemory)
+void VulkanDeviceWrapper::UnmapDeviceMemory(DeviceMemory& aDeviceMemory) const
 {
 	const VulkanDeviceDispatchTable& table = myTable;
 	table.myUnmapMemory(Unwrap(myDevice), Unwrap(aDeviceMemory));
 }
 
-void VulkanDeviceWrapper::ResizeSwapchain(int aWidth, int aHeight)
+void VulkanCommandBufferWrapper::BeginCommandBuffer(const VkCommandBufferBeginInfo& aCommandBufferBeginInfo) const
 {
-	CreateSwapchain(aWidth, aHeight, mySwapchainImageCount);
+	VULKAN_CHECK_VALID_RESULT(myTable.myBeginCommandBuffer(Unwrap(myCommandBuffer), &aCommandBufferBeginInfo));
 }
 
-uint32_t VulkanDeviceWrapper::AcquireNextImage(Semaphore& aSemaphore)
+void VulkanCommandBufferWrapper::EndCommandBuffer() const
 {
-	uint32_t imageIndex;
-	VULKAN_CHECK_VALID_RESULT(myDTable.myAcquireNextImageKHR(Unwrap(myDevice), mySwapchain, UINT64_MAX, Unwrap(aSemaphore), VK_NULL_HANDLE, &imageIndex));
-	return imageIndex;
+	VULKAN_CHECK_VALID_RESULT(myTable.myEndCommandBuffer(Unwrap(myCommandBuffer)));
 }
 
-uint32_t VulkanDeviceWrapper::AcquireNextImage(Fence& aFence)
-{
-	uint32_t imageIndex;
-	VULKAN_CHECK_VALID_RESULT(myTable.myAcquireNextImageKHR(Unwrap(myDevice), mySwapchain, UINT64_MAX, VK_NULL_HANDLE, Unwrap(aFence), &imageIndex));
-	return imageIndex;
-}
-
-uint32_t VulkanDeviceWrapper::AcquireNextImage(Semaphore& aSemaphore, Fence& aFence)
-{
-	uint32_t imageIndex;
-	VULKAN_CHECK_VALID_RESULT(myTable.myAcquireNextImageKHR(Unwrap(myDevice), mySwapchain, UINT64_MAX, Unwrap(aSemaphore), Unwrap(aFence), &imageIndex));
-	return imageIndex;
-}
-
-void VulkanDeviceWrapper::BeginCommandBuffer(CommandBuffer& aCommandBuffer, const VkCommandBufferBeginInfo& aCommandBufferBeginInfo)
-{
-	VULKAN_CHECK_VALID_RESULT(myTable.myBeginCommandBuffer(Unwrap(aCommandBuffer), &aCommandBufferBeginInfo));
-}
-
-void VulkanDeviceWrapper::EndCommandBuffer(CommandBuffer& aCommandBuffer)
-{
-	VULKAN_CHECK_VALID_RESULT(myTable.myEndCommandBuffer(Unwrap(aCommandBuffer)));
-}
-
-void VulkanDeviceWrapper::BeginRenderPass(CommandBuffer& aCommandBuffer, const VkRenderPassBeginInfo& aRenderPassBeginInfo)
+void VulkanCommandBufferWrapper::BeginRenderPass(const VkRenderPassBeginInfo& aRenderPassBeginInfo) const
 {
 	// TODO: Check what third parameter is for
-	myTable.myCmdBeginRenderPass(Unwrap(aCommandBuffer), &aRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	myTable.myCmdBeginRenderPass(Unwrap(myCommandBuffer), &aRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
-void VulkanDeviceWrapper::EndRenderPass(CommandBuffer& aCommandBuffer)
+void VulkanCommandBufferWrapper::EndRenderPass() const
 {
-	myTable.myCmdEndRenderPass(Unwrap(aCommandBuffer));
+	myTable.myCmdEndRenderPass(Unwrap(myCommandBuffer));
 }
 
-void VulkanDeviceWrapper::BindPipeline(CommandBuffer& aCommandBuffer, Pipeline& aPipeline, bool isGraphicsPipeline)
+void VulkanCommandBufferWrapper::BindPipeline(Pipeline& aPipeline, bool isGraphicsPipeline) const
 {
 	VkPipelineBindPoint pipelineBindPoint = isGraphicsPipeline ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE;
-	myTable.myCmdBindPipeline(Unwrap(aCommandBuffer), pipelineBindPoint, Unwrap(aPipeline));
+	myTable.myCmdBindPipeline(Unwrap(myCommandBuffer), pipelineBindPoint, Unwrap(aPipeline));
 }
 
-void VulkanDeviceWrapper::SetViewport(CommandBuffer& aCommandBuffer, VkViewport* someViewports, uint32_t aViewportCount, uint32_t aFirstViewport)
+void VulkanCommandBufferWrapper::SetViewport(VkViewport* someViewports, uint32_t aViewportCount, uint32_t aFirstViewport) const
 {
-	myTable.myCmdSetViewport(Unwrap(aCommandBuffer), aFirstViewport, aViewportCount, someViewports);
+	myTable.myCmdSetViewport(Unwrap(myCommandBuffer), aFirstViewport, aViewportCount, someViewports);
 }
 
-void VulkanDeviceWrapper::SetScissor(CommandBuffer& aCommandBuffer, VkRect2D* someRects, uint32_t aRectCount, uint32_t aFirstRect)
+void VulkanCommandBufferWrapper::SetScissor(VkRect2D* someRects, uint32_t aRectCount, uint32_t aFirstRect) const
 {
-	myTable.myCmdSetScissor(Unwrap(aCommandBuffer), aFirstRect, aRectCount, someRects);
+	myTable.myCmdSetScissor(Unwrap(myCommandBuffer), aFirstRect, aRectCount, someRects);
 }
 
-void VulkanDeviceWrapper::BindVertexBuffers(CommandBuffer& aCommandBuffer, Buffer* someBuffers, const VkDeviceSize* someOffsets, uint32_t aBufferCount)
+void VulkanCommandBufferWrapper::BindVertexBuffers(Buffer* someBuffers, const VkDeviceSize* someOffsets, uint32_t aBufferCount) const
 {
-	myTable.myCmdBindVertexBuffers(Unwrap(aCommandBuffer), 0, aBufferCount, Unwrap(someBuffers), someOffsets);
+	myTable.myCmdBindVertexBuffers(Unwrap(myCommandBuffer), 0, aBufferCount, Unwrap(someBuffers), someOffsets);
 }
 
-void VulkanDeviceWrapper::BindDescriptorSets(CommandBuffer& aCommandBuffer, PipelineLayout& aPipelineLayout, DescriptorSet* someDescriptorSets, uint32_t aDescriptorSetCount)
+void VulkanCommandBufferWrapper::BindDescriptorSets(PipelineLayout& aPipelineLayout, DescriptorSet* someDescriptorSets, uint32_t aDescriptorSetCount) const
 {
-	myTable.myCmdBindDescriptorSets(Unwrap(aCommandBuffer), VK_PIPELINE_BIND_POINT_GRAPHICS, Unwrap(aPipelineLayout), 0, aDescriptorSetCount, Unwrap(someDescriptorSets), 0, nullptr);
+	myTable.myCmdBindDescriptorSets(Unwrap(myCommandBuffer), VK_PIPELINE_BIND_POINT_GRAPHICS, Unwrap(aPipelineLayout), 0, aDescriptorSetCount, Unwrap(someDescriptorSets), 0, nullptr);
 }
 
-void VulkanDeviceWrapper::Draw(CommandBuffer& aCommandBuffer, uint32_t aVertexCount, uint32_t aFirstVertex, uint32_t anInstanceCount, uint32_t aFirstInstance)
+void VulkanCommandBufferWrapper::Draw(uint32_t aVertexCount, uint32_t aFirstVertex, uint32_t anInstanceCount, uint32_t aFirstInstance) const
 {
-	myTable.myCmdDraw(Unwrap(aCommandBuffer), aVertexCount, anInstanceCount, aFirstVertex, aFirstInstance);
-}
-
-void VulkanDeviceWrapper::WaitForFences(Fence* someFences, uint32_t aFenceCount)
-{
-	VULKAN_CHECK_VALID_RESULT(myTable.myWaitForFences(Unwrap(myDevice), aFenceCount, Unwrap(someFences), VK_TRUE, UINT64_MAX));
-}
-
-void VulkanDeviceWrapper::ResetFences(Fence* someFences, uint32_t aFenceCount)
-{
-	VULKAN_CHECK_VALID_RESULT(myTable.myResetFences(Unwrap(myDevice), aFenceCount, Unwrap(someFences)));
-}
-
-void VulkanDeviceWrapper::Submit(const VkSubmitInfo* someSubmitInfos, uint32_t aSubmitCount)
-{
-	VULKAN_CHECK_VALID_RESULT(myTable.myQueueSubmit(Unwrap(myQueue), aSubmitCount, someSubmitInfos, VK_NULL_HANDLE));
-}
-
-void VulkanDeviceWrapper::Submit(const VkSubmitInfo* someSubmitInfos, uint32_t aSubmitCount, Fence& aFence)
-{
-	VULKAN_CHECK_VALID_RESULT(myTable.myQueueSubmit(Unwrap(myQueue), aSubmitCount, someSubmitInfos, Unwrap(aFence)));
-}
-
-void VulkanDeviceWrapper::Present(Semaphore* someWaitSemaphores, uint32_t aWaitSemaphoreCount, uint32_t anImageIndex)
-{
-	VkPresentInfoKHR presentInfoKHR
-	{
-		VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-		nullptr,
-		aWaitSemaphoreCount,
-		Unwrap(someWaitSemaphores),
-		1,
-		&mySwapchain,
-		&anImageIndex,
-		nullptr
-	};
-
-	VkResult result = myTable.myQueuePresentKHR(myQueue, &presentInfoKHR);
-	if (result != VK_SUCCESS)
-	{
-		if (result == VK_ERROR_OUT_OF_DATE_KHR)
-			Debug::PrintToOutput("ERROR: OUT_OF_DATE_KHR\n");
-		else if (result == VK_ERROR_SURFACE_LOST_KHR)
-			Debug::PrintToOutput("ERROR: SURFACE_LOST_KHR\n");
-		else
-			Debug::Breakpoint();
-	}
-}
-
-void VulkanDeviceWrapper::WaitForDevice() const
-{
-	VULKAN_CHECK_VALID_RESULT(myTable.myDeviceWaitIdle(Unwrap(myDevice)));
-}
-
-void VulkanDeviceWrapper::GetSwapchainImages(Image* someImagesOut)
-{
-	const VulkanDeviceDispatchTable& table = myTable;
-	VULKAN_CHECK_VALID_RESULT(table.myGetSwapchainImagesKHR(myDevice, mySwapchain, &mySwapchainImageCount, Unwrap(someImagesOut)));
-}
-
-void VulkanDeviceWrapper::CreateSwapchain(uint32_t aWidth, uint32_t aHeight, uint32_t aBackFramebufferCount)
-{
-	const VulkanInstanceDispatchTable& instanceTable = myInstanceTable;
-	const VulkanDeviceDispatchTable& deviceTable = myDeviceTable;
-
-	// Choose format for the swapchain
-	uint32_t surfaceFormatCount = 0u;
-	VULKAN_CHECK_VALID_RESULT(instanceTable.myGetPhysicalDeviceSurfaceFormatsKHR(myPhysicalDevice, mySurface, &surfaceFormatCount, nullptr));
-
-	std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
-	VULKAN_CHECK_VALID_RESULT(instanceTable.myGetPhysicalDeviceSurfaceFormatsKHR(myPhysicalDevice, mySurface, &surfaceFormatCount, surfaceFormats.data()));
-	mySwapchainFormat = surfaceFormats[0].format;
-
-	// Get surface capabilities
-	VkSurfaceCapabilitiesKHR surfaceCapabilities;
-	VULKAN_CHECK_VALID_RESULT(instanceTable.myGetPhysicalDeviceSurfaceCapabilitiesKHR(myPhysicalDevice, mySurface, &surfaceCapabilities));
-
-	// Check if current surface allows for the amount of images we want. If maxImageCount is 0, then there's unlimited (until we run out of memory)
-	mySwapchainImageCount = aBackFramebufferCount;
-	if (surfaceCapabilities.maxImageCount)
-	{
-		// Clamp to allowed range
-		mySwapchainImageCount = surfaceCapabilities.minImageCount < mySwapchainImageCount ? mySwapchainImageCount : surfaceCapabilities.minImageCount;
-		mySwapchainImageCount = mySwapchainImageCount < surfaceCapabilities.maxImageCount ? mySwapchainImageCount : surfaceCapabilities.maxImageCount;
-	}
-
-	VkSwapchainCreateInfoKHR swapchainInfo{
-		VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-		nullptr,
-		0,
-		mySurface,
-		mySwapchainImageCount,
-		mySwapchainFormat,
-		VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, // TODO: check what is this
-		VkExtent2D{ aWidth, aHeight },
-		1u, // TODO: what is an stereoscopic-3D application? If so, it needs to be something else than non 1
-		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-		VK_SHARING_MODE_EXCLUSIVE, // TODO: Investigate this, and its uses
-		0u, // TODO: Same as previous
-		nullptr,
-		VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR, // TODO: Same as previous
-		VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, // TODO: Same as previous
-		VK_PRESENT_MODE_FIFO_KHR, // TODO: Choose right one, or give the user the ability to choose
-		VK_FALSE, // TODO: Investigate this
-		mySwapchain // TODO: When creating the swapchain again due to resize, pass the previous swapchain here
-	};
-	VkSwapchainKHR newSwapchain = VK_NULL_HANDLE;
-	VULKAN_CHECK_VALID_RESULT(deviceTable.myCreateSwapchainKHR(myDevice, &swapchainInfo, nullptr, &newSwapchain));
-	deviceTable.myDestroySwapchainKHR(myDevice, mySwapchain, nullptr);
-	mySwapchain = newSwapchain;
-
-	// Request number of images in swapchain so it does not complain later on when we use mySwapchainImageCount
-	VULKAN_CHECK_VALID_RESULT(deviceTable.myGetSwapchainImagesKHR(myDevice, mySwapchain, &mySwapchainImageCount, nullptr));
-}
-
-void VulkanInstanceWrapper::DestroySwapchain()
-{
-	const VulkanDeviceDispatchTable& table = myDeviceTable;
-	table.myDestroySwapchainKHR(myDevice, mySwapchain, nullptr);
-
-#if IS_DEBUG_BUILD
-	mySwapchain = VK_NULL_HANDLE;
-#endif
+	myTable.myCmdDraw(Unwrap(myCommandBuffer), aVertexCount, anInstanceCount, aFirstVertex, aFirstInstance);
 }
 
 #if IS_DEBUG_BUILD
