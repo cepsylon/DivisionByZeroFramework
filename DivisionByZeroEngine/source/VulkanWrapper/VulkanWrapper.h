@@ -75,6 +75,7 @@ public:
 
 	Instance GetInstance() const { return myInstance; }
 	const VulkanInstanceDispatchTable& GetTable() const { return myTable; }
+	bool IsValid() const { return Unwrap(myInstance) != VK_NULL_HANDLE; }
 
 private:
 	Instance myInstance;
@@ -152,6 +153,7 @@ public:
 	PhysicalDevice GetPhysicalDevice() const { return myPhysicalDevice; }
 	Device GetDevice() const { return myDevice; }
 	const VulkanDeviceDispatchTable& GetTable() const { return myTable; }
+	bool IsValid() const { return Unwrap(myDevice) != VK_NULL_HANDLE; }
 
 private:
 	friend class VulkanInstanceWrapper;
@@ -177,6 +179,9 @@ public:
 	void BindVertexBuffers(Buffer* someBuffers, const VkDeviceSize* someOffsets, uint32_t aBufferCount) const;
 	void BindDescriptorSets(PipelineLayout& aPipelineLayout, DescriptorSet* someDescriptorSets, uint32_t aDescriptorSetCount) const;
 	void Draw(uint32_t aVertexCount, uint32_t aFirstVertex, uint32_t anInstanceCount, uint32_t aFirstInstance) const;
+
+	CommandBuffer GetCommandBuffer() const { return myCommandBuffer; }
+	const VulkanCommandBufferDispatchTable& GetTable() const { return myTable; }
 
 private:
 	friend class VulkanDeviceWrapper;
