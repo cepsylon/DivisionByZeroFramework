@@ -562,15 +562,6 @@ void Application::WindowResize(uint32_t aWidth, uint32_t aHeight)
 	myRenderer.Resize(aWidth, aHeight, myMainWindowDisplayRenderer);
 }
 
-unsigned findNumberWithNoPair(unsigned* someNumbers, unsigned aCount)
-{
-	unsigned numberWithNoPair = 0u;
-	for (unsigned i = 0; i < aCount; ++i)
-		numberWithNoPair ^= someNumbers[i];
-
-	return numberWithNoPair;
-}
-
 void Application::WindowPaint()
 {
 	// Render

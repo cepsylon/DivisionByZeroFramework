@@ -138,7 +138,13 @@ void Renderer::Destroy(DisplayRenderer& aDisplayRendererOut)
 
 void Renderer::Resize(uint32_t aWidth, uint32_t aHeight, DisplayRenderer& aDisplayRendererOut)
 {
-	DestroyDisplaySwapchainResources(aDisplayRendererOut);
+	// Destroy only swapchain related resources without destroying swapchain to be able to reuse if possible
+	uint32_t swapchainImageCount = aDisplayRendererOut.myDisplayImageCount;
+	for (uint32_t i = 0; i < swapchainImageCount; ++i)
+	{
+		myVulkanDeviceWrapper.Destroy(aDisplayRendererOut.myDisplayFramebuffers[i]);
+		myVulkanDeviceWrapper.Destroy(aDisplayRendererOut.myDisplayImageViews[i]);
+	}
 
 	CreateDisplaySwapchain(aWidth, aHeight, aDisplayRendererOut.myDisplayImageCount, aDisplayRendererOut);
 	CreateDisplayImageViews(aDisplayRendererOut);
