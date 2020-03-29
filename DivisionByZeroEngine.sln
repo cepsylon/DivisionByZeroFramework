@@ -3,9 +3,20 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28307.645
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTests", "UnitTests\UnitTests.vcxproj", "{E743D64F-79F0-41C6-90E4-E02088725089}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DBZ_VulkanWrapper", "vs_projects\DBZ_VulkanWrapper.vcxproj", "{6AF6D760-662A-4642-8A12-9654879C67E3}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DivisionByZeroEngine", "DivisionByZeroEngine\DivisionByZeroEngine.vcxproj", "{32917F9C-F157-4452-BAB4-9A3ECF6AA325}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DBZ_Memory", "vs_projects\DBZ_Memory.vcxproj", "{18CE2C1A-7817-45E8-A1B4-715D9FC304C7}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DBZ_UnitTests", "vs_projects\DBZ_UnitTests.vcxproj", "{E743D64F-79F0-41C6-90E4-E02088725089}"
+	ProjectSection(ProjectDependencies) = postProject
+		{18CE2C1A-7817-45E8-A1B4-715D9FC304C7} = {18CE2C1A-7817-45E8-A1B4-715D9FC304C7}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DBZ_Engine", "vs_projects\DBZ_Engine.vcxproj", "{32917F9C-F157-4452-BAB4-9A3ECF6AA325}"
+	ProjectSection(ProjectDependencies) = postProject
+		{18CE2C1A-7817-45E8-A1B4-715D9FC304C7} = {18CE2C1A-7817-45E8-A1B4-715D9FC304C7}
+		{6AF6D760-662A-4642-8A12-9654879C67E3} = {6AF6D760-662A-4642-8A12-9654879C67E3}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +26,22 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6AF6D760-662A-4642-8A12-9654879C67E3}.Debug|x64.ActiveCfg = Debug|x64
+		{6AF6D760-662A-4642-8A12-9654879C67E3}.Debug|x64.Build.0 = Debug|x64
+		{6AF6D760-662A-4642-8A12-9654879C67E3}.Debug|x86.ActiveCfg = Debug|Win32
+		{6AF6D760-662A-4642-8A12-9654879C67E3}.Debug|x86.Build.0 = Debug|Win32
+		{6AF6D760-662A-4642-8A12-9654879C67E3}.Release|x64.ActiveCfg = Release|x64
+		{6AF6D760-662A-4642-8A12-9654879C67E3}.Release|x64.Build.0 = Release|x64
+		{6AF6D760-662A-4642-8A12-9654879C67E3}.Release|x86.ActiveCfg = Release|Win32
+		{6AF6D760-662A-4642-8A12-9654879C67E3}.Release|x86.Build.0 = Release|Win32
+		{18CE2C1A-7817-45E8-A1B4-715D9FC304C7}.Debug|x64.ActiveCfg = Debug|x64
+		{18CE2C1A-7817-45E8-A1B4-715D9FC304C7}.Debug|x64.Build.0 = Debug|x64
+		{18CE2C1A-7817-45E8-A1B4-715D9FC304C7}.Debug|x86.ActiveCfg = Debug|Win32
+		{18CE2C1A-7817-45E8-A1B4-715D9FC304C7}.Debug|x86.Build.0 = Debug|Win32
+		{18CE2C1A-7817-45E8-A1B4-715D9FC304C7}.Release|x64.ActiveCfg = Release|x64
+		{18CE2C1A-7817-45E8-A1B4-715D9FC304C7}.Release|x64.Build.0 = Release|x64
+		{18CE2C1A-7817-45E8-A1B4-715D9FC304C7}.Release|x86.ActiveCfg = Release|Win32
+		{18CE2C1A-7817-45E8-A1B4-715D9FC304C7}.Release|x86.Build.0 = Release|Win32
 		{E743D64F-79F0-41C6-90E4-E02088725089}.Debug|x64.ActiveCfg = Debug|x64
 		{E743D64F-79F0-41C6-90E4-E02088725089}.Debug|x64.Build.0 = Debug|x64
 		{E743D64F-79F0-41C6-90E4-E02088725089}.Debug|x86.ActiveCfg = Debug|Win32

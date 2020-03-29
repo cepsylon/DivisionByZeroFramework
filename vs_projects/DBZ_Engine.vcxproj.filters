@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{2748bf87-f59c-4ef7-b25e-06e4b22dc4d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Application">
+      <UniqueIdentifier>{bf1da235-b528-4821-ac2f-5db2439f0ab5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Common">
+      <UniqueIdentifier>{1d42799a-7fc1-4217-9ac6-0370b64a1842}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Window">
+      <UniqueIdentifier>{b3f405a7-52be-4c4e-8035-0fbe32d7838f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Renderer">
+      <UniqueIdentifier>{7970751e-e62d-47cd-83cf-366ad5a0c069}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Input">
+      <UniqueIdentifier>{f12cc6ee-ccfd-4666-ba4e-89f60e67dcad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Process">
+      <UniqueIdentifier>{addcb76e-071a-4450-bf42-8e27a2958d2d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\EntryPoint">
+      <UniqueIdentifier>{c2599b88-02ff-4e87-a169-c3d135ae1093}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\source\Engine\Renderer\Camera.cpp">
+      <Filter>source\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\Engine\Renderer\DisplayRenderer.cpp">
+      <Filter>source\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\Engine\Renderer\Renderer.cpp">
+      <Filter>source\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\Engine\Common\Debug.cpp">
+      <Filter>source\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\Engine\Input\Input.cpp">
+      <Filter>source\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\Engine\Application\Application.cpp">
+      <Filter>source\Application</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\Engine\Window\Window.cpp">
+      <Filter>source\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\Engine\Window\WindowClass.cpp">
+      <Filter>source\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\Engine\Process\Process.cpp">
+      <Filter>source\Process</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\Engine\main_win32.cpp">
+      <Filter>source\EntryPoint</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\source\Engine\Renderer\Camera.h">
+      <Filter>source\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Engine\Renderer\DisplayRenderer.h">
+      <Filter>source\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Engine\Renderer\Renderer.h">
+      <Filter>source\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Engine\Renderer\VRamManager.h">
+      <Filter>source\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Engine\Common\Debug.h">
+      <Filter>source\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Engine\Input\Input.h">
+      <Filter>source\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Engine\Common\Callback.h">
+      <Filter>source\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Engine\Application\Application.h">
+      <Filter>source\Application</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Engine\Window\Window.h">
+      <Filter>source\Window</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Engine\Window\WindowClass.h">
+      <Filter>source\Window</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Engine\Process\Process.h">
+      <Filter>source\Process</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\GlobalDefines.h">
+      <Filter>source</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -5,6 +5,6 @@
 /.vs
 /obj
 /bin
+/lib
 *.spv
 *.vcxproj.user
-*.vcxproj.filters

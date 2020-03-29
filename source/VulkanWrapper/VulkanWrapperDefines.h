@@ -1,0 +1,3 @@
+#pragma once
+
+#define IS_RESULT_VALIDATION_ENABLED _DEBUG

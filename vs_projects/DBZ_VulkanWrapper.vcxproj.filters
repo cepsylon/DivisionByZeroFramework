@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{5fb42ecb-4f08-4424-9a7d-208f4fd8d857}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\source\VulkanWrapper\VulkanDispatchTable.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\VulkanWrapper\VulkanModule.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\VulkanWrapper\VulkanWrapper.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\source\VulkanWrapper\VulkanDispatchTable.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\VulkanWrapper\VulkanModule.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\VulkanWrapper\VulkanWrapper.h">
+      <Filter>source</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
