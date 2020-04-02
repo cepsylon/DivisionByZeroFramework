@@ -5,7 +5,19 @@ namespace dbz
 
 MemoryPage MemoryPage::Create(uint32_t aSize, SelectionMethod aSelectionMethod)
 {
-	return MemoryPage{ new Block{ 0u, aSize, nullptr } };
+	SelectionMethodFn selectionMethod = nullptr;
+
+	switch (aSelectionMethod)
+	{
+	case SelectionMethod::FIRST_FIT:
+		selectionMethod = &FirstFit;
+		break;
+	case SelectionMethod::BEST_FIT:
+		selectionMethod = &BestFit;
+		break;
+	}
+
+	return MemoryPage{ new Block{ 0u, aSize, nullptr }, selectionMethod };
 }
 
 void MemoryPage::Destroy(MemoryPage& aMemoryPage)
@@ -32,33 +44,25 @@ void MemoryPage::Destroy(MemoryPage& aMemoryPage)
 uint32_t MemoryPage::Allocate(uint32_t aSize)
 {
 	uint32_t allocationOffset = UINT32_MAX;
-	Block* iteratorParent = nullptr;
-	Block* iterator = myFreeBlocks;
-	while (iterator)
+
+	Block* parentNode = nullptr;
+	if (Block* allocateFromBlock = (this->*mySelectionMethodFn)(aSize, parentNode))
 	{
-		if (iterator->mySize >= aSize)
+		allocationOffset = allocateFromBlock->myOffset;
+
+		if (allocateFromBlock->mySize == aSize)
 		{
-			allocationOffset = iterator->myOffset;
-
-			if (iterator->mySize == aSize)
-			{
-				Block** toUpdate = iteratorParent ? &iteratorParent->myNext : &myFreeBlocks;
-				*toUpdate = iterator->myNext;
-				iterator->myNext = myInUseBlocks;
-				myInUseBlocks = iterator;
-			}
-			else
-			{
-				myInUseBlocks = new Block{ iterator->myOffset, aSize, myInUseBlocks };
-				iterator->myOffset += aSize;
-				iterator->mySize -= aSize;
-			}
-
-			break;
+			Block** toUpdate = parentNode ? &parentNode->myNext : &myFreeBlocks;
+			*toUpdate = allocateFromBlock->myNext;
+			allocateFromBlock->myNext = myInUseBlocks;
+			myInUseBlocks = allocateFromBlock;
 		}
-
-		iteratorParent = iterator;
-		iterator = iterator->myNext;
+		else
+		{
+			myInUseBlocks = new Block{ allocateFromBlock->myOffset, aSize, myInUseBlocks };
+			allocateFromBlock->myOffset += aSize;
+			allocateFromBlock->mySize -= aSize;
+		}
 	}
 
 	return allocationOffset;
@@ -90,23 +94,64 @@ bool MemoryPage::Free(uint32_t anOffset)
 		return false;
 
 	// Merge freed block with pre-existing free block if possible
+	uint32_t nextOffset = anOffset + toFree->mySize;
+	Block* toMergeNodeParent = nullptr;
+	iteratorParent = nullptr;
 	iterator = myFreeBlocks;
+	bool mergedBlock = false;
 	while (iterator)
 	{
+		// Merge to existing block
 		if (iterator->myOffset + iterator->mySize == anOffset)
 		{
+			if (mergedBlock)
+			{
+				Block** toUpdate = toMergeNodeParent ? &toMergeNodeParent->myNext : &myFreeBlocks;
+				Block* blockToFree = *toUpdate;
+				iterator->mySize += blockToFree->mySize;
+				*toUpdate = blockToFree->myNext;
+				delete blockToFree;
+
+				break;
+			}
+
 			iterator->mySize += toFree->mySize;
-			delete toFree;
-			toFree = nullptr;
-			break;
+			mergedBlock = true;
+			toMergeNodeParent = iteratorParent;
 		}
 
+		// Merge existing block to freed one
+		if (iterator->myOffset == nextOffset)
+		{
+			if (mergedBlock)
+			{
+				Block** toUpdate = toMergeNodeParent ? &toMergeNodeParent->myNext : &myFreeBlocks;
+				Block* blockToFree = *toUpdate;
+				*toUpdate = blockToFree->myNext;
+				iterator->mySize += blockToFree->mySize;
+				iterator->myOffset = blockToFree->myOffset;
+				delete blockToFree;
+
+				break;
+			}
+
+			iterator->myOffset -= toFree->mySize;
+			iterator->mySize += toFree->mySize;
+			mergedBlock = true;
+			toMergeNodeParent = iteratorParent;
+		}
+
+		iteratorParent = iterator;
 		iterator = iterator->myNext;
 	}
 
-	// Could not merge blocks, so we just push it to the front
-	if (toFree)
+	if (mergedBlock)
 	{
+		delete toFree;
+	}
+	else
+	{
+		// Could not merge blocks, so we just push it to the front
 		toFree->myNext = myFreeBlocks;
 		myFreeBlocks = toFree;
 	}
@@ -114,9 +159,77 @@ bool MemoryPage::Free(uint32_t anOffset)
 	return true;
 }
 
-MemoryPage::MemoryPage(Block* aFreeBlock)
+MemoryPage::Block* MemoryPage::FirstFit(uint32_t aSize, Block*& aParentNodeOut) const
+{
+	Block* iterator = myFreeBlocks;
+	Block* parentIterator = nullptr;
+
+	while (iterator)
+	{
+		if (iterator->mySize >= aSize)
+			break;
+
+		parentIterator = iterator;
+		iterator = iterator->myNext;
+	}
+
+	aParentNodeOut = parentIterator;
+	return iterator;
+}
+
+MemoryPage::Block* MemoryPage::BestFit(uint32_t aSize, Block*& aParentNodeOut) const
+{
+	uint32_t minSpareMemory = UINT32_MAX;
+	Block* bestBlock = nullptr;
+	Block* iterator = myFreeBlocks;
+	Block* parentIterator = nullptr;
+
+	while (iterator)
+	{
+		if (iterator->mySize >= aSize && minSpareMemory > (iterator->mySize - aSize))
+		{
+			bestBlock = iterator;
+			minSpareMemory = iterator->mySize - aSize;
+		}
+
+		iterator = iterator->myNext;
+	}
+
+	aParentNodeOut = parentIterator;
+	return bestBlock;
+}
+
+MemoryPage::MemoryPage(Block* aFreeBlock, SelectionMethodFn aSelectionMethodFn)
 	: myFreeBlocks(aFreeBlock)
 	, myInUseBlocks(nullptr)
+	, mySelectionMethodFn(aSelectionMethodFn)
 { }
+
+#if IS_DEVELOPMENT_BUILD
+
+void MemoryPage::Print(std::ostream& anOutputStream) const
+{
+	anOutputStream << "In use blocks:\n";
+	anOutputStream << "Head";
+	Block* iterator = myInUseBlocks;
+	while (iterator)
+	{
+		anOutputStream << " -> [Offset: " << iterator->myOffset << ", Size: " << iterator->mySize << "]";
+		iterator = iterator->myNext;
+	}
+	anOutputStream << " -> nullptr\n";
+
+	anOutputStream << "Free blocks:\n";
+	anOutputStream << "Head";
+	iterator = myFreeBlocks;
+	while (iterator)
+	{
+		anOutputStream << " -> [Offset: " << iterator->myOffset << ", Size: " << iterator->mySize << "]";
+		iterator = iterator->myNext;
+	}
+	anOutputStream << " -> nullptr\n";
+}
+
+#endif // IS_DEBUG_BUILD
 
 }

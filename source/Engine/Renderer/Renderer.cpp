@@ -130,9 +130,9 @@ void Renderer::Destroy(DisplayRenderer& aDisplayRendererOut)
 	myVulkanDeviceWrapper.Destroy(aDisplayRendererOut.myDisplayRenderPass);
 	myVulkanInstanceWrapper.Destroy(aDisplayRendererOut.mySurface);
 
-#if IS_DEBUG_BUILD
+#if IS_DEVELOPMENT_BUILD
 	memset(&aDisplayRendererOut, 0, sizeof(aDisplayRendererOut));
-#endif
+#endif // IS_DEVELOPMENT_BUILD
 }
 
 void Renderer::Resize(uint32_t aWidth, uint32_t aHeight, DisplayRenderer& aDisplayRendererOut)

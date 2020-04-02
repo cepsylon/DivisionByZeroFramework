@@ -1,6 +1,12 @@
 #pragma once
 
+#include "GlobalDefines.h"
+
 #include <stdint.h>
+
+#if IS_DEVELOPMENT_BUILD
+#include <iostream>
+#endif // IS_DEBUG_BUILD
 
 namespace dbz
 {
@@ -31,10 +37,20 @@ private:
 		Block* myNext = nullptr;
 	};
 
-	MemoryPage(Block* aFreeBlock);
+	Block* FirstFit(uint32_t aSize, Block*& aParentNodeOut) const;
+	Block* BestFit(uint32_t aSize, Block*& aParentNodeOut) const;
+
+	using SelectionMethodFn = Block* (MemoryPage::*)(uint32_t, Block*&) const;
+	MemoryPage(Block* aFreeBlock, SelectionMethodFn aSelectionMethod);
 
 	Block* myFreeBlocks = nullptr;
 	Block* myInUseBlocks = nullptr;
+	SelectionMethodFn mySelectionMethodFn = nullptr;
+
+#if IS_DEVELOPMENT_BUILD
+public:
+	void Print(std::ostream& anOutputStream) const;
+#endif // IS_DEBUG_BUILD
 };
 
 }

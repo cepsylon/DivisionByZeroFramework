@@ -4,25 +4,31 @@
     <Filter Include="source">
       <UniqueIdentifier>{f64b04e8-7880-4535-888b-9348842cdd8d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="source\Memory">
+      <UniqueIdentifier>{a1c2a87b-5f6d-4214-bb27-138b69d66f3b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Math">
+      <UniqueIdentifier>{26c84b14-554f-481b-b399-a4d17bcc1f90}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\source\UnitTests\Matrix44Tests.cpp">
-      <Filter>source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\UnitTests\MemoryRequesterTests.cpp">
-      <Filter>source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\UnitTests\QuaternionTests.cpp">
-      <Filter>source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\UnitTests\SIMDVectorTests.cpp">
-      <Filter>source</Filter>
-    </ClCompile>
     <ClCompile Include="..\source\UnitTests\UnitTestsMain.cpp">
       <Filter>source</Filter>
     </ClCompile>
+    <ClCompile Include="..\source\UnitTests\MemoryPageTests.cpp">
+      <Filter>source\Memory</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\UnitTests\Matrix44Tests.cpp">
+      <Filter>source\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\UnitTests\QuaternionTests.cpp">
+      <Filter>source\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\UnitTests\SIMDVectorTests.cpp">
+      <Filter>source\Math</Filter>
+    </ClCompile>
     <ClCompile Include="..\source\UnitTests\Vector3Tests.cpp">
-      <Filter>source</Filter>
+      <Filter>source\Math</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

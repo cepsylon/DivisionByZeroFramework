@@ -25,3 +25,9 @@
 #else
 #define IS_DEBUG_BUILD 0
 #endif // _DEBUG
+
+#if defined(DBZ_DEVELOPMENT)
+#define IS_DEVELOPMENT_BUILD 1
+#else
+#define IS_DEVELOPMENT_BUILD 0
+#endif // DBZ_DEVELOPMENT
