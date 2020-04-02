@@ -180,7 +180,7 @@ public:
 	void BindDescriptorSets(PipelineLayout& aPipelineLayout, DescriptorSet* someDescriptorSets, uint32_t aDescriptorSetCount) const;
 	void Draw(uint32_t aVertexCount, uint32_t aFirstVertex, uint32_t anInstanceCount, uint32_t aFirstInstance) const;
 
-	CommandBuffer GetCommandBuffer() const { return myCommandBuffer; }
+	const CommandBuffer& GetCommandBuffer() const { return myCommandBuffer; }
 	const VulkanCommandBufferDispatchTable& GetTable() const { return myTable; }
 
 private:
