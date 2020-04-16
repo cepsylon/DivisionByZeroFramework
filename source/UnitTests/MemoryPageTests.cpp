@@ -82,7 +82,7 @@ TEST_CASE("MemoryPage_AdjacedBlocksWhenFreedAreMerged_2", "[Memory], [MemoryPage
 
 TEST_CASE("MemoryPage_AllocationDeallocation_StressTest", "[Memory], [MemoryPage], [StressTest]")
 {
-	dbz::MemoryPage page = dbz::MemoryPage::Create(DBZ_MB);
+	dbz::MemoryPage page = dbz::MemoryPage::Create(DBZ_GB);
 
 	std::vector<uint32_t> offsets;
 
@@ -114,11 +114,38 @@ TEST_CASE("MemoryPage_BestFitAllocatesFromSmallestAvailableBlock", "[Memory], [M
 {
 	dbz::MemoryPage page = dbz::MemoryPage::Create(DBZ_MB, dbz::MemoryPage::SelectionMethod::BEST_FIT);
 
-	//uint32_t allocationOneKb = page.Allocate(DBZ_KB);
-	//uint32_t allocationThreeKb = page.Allocate(3 * DBZ_KB);
-	//uint32_t allocationTwoKb = page.Allocate(2 * DBZ_KB);
-	//uint32_t allocationFiveKb = page.Allocate(5 * DBZ_KB);
-	//uint32_t allocationFourKb = page.Allocate(4 * DBZ_KB);
+	constexpr uint32_t kb2 = 2 * DBZ_KB;
+	constexpr uint32_t kb3 = 3 * DBZ_KB;
+	constexpr uint32_t kb4 = 4 * DBZ_KB;
+	constexpr uint32_t kb5 = 5 * DBZ_KB;
+
+	constexpr uint32_t firstOffset = DBZ_KB;
+	constexpr uint32_t secondOffset = firstOffset + kb3;
+	constexpr uint32_t thirdOffset = secondOffset + kb5;
+	constexpr uint32_t fourthOffset = thirdOffset + kb2;
+
+	uint32_t allocationOneKb = page.Allocate(DBZ_KB);
+	uint32_t allocationThreeKb = page.Allocate(kb3);
+	uint32_t allocationFiveKb = page.Allocate(kb5);
+	uint32_t allocationTwoKb = page.Allocate(kb2);
+	uint32_t allocationFourKb = page.Allocate(kb4);
+
+	REQUIRE(allocationOneKb == 0u);
+	REQUIRE(allocationThreeKb == firstOffset);
+	REQUIRE(allocationFiveKb == secondOffset);
+	REQUIRE(allocationTwoKb == thirdOffset);
+	REQUIRE(allocationFourKb == fourthOffset);
+
+	page.Free(allocationThreeKb);
+	page.Free(allocationTwoKb);
+	allocationTwoKb = page.Allocate(kb2);
+
+	REQUIRE(allocationTwoKb == thirdOffset);
+
+	page.Free(allocationOneKb);
+	page.Free(allocationTwoKb);
+	page.Free(allocationFourKb);
+	page.Free(allocationFiveKb);
 
 	dbz::MemoryPage::Destroy(page);
 }

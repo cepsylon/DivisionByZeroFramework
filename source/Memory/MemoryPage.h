@@ -3,10 +3,11 @@
 #include "GlobalDefines.h"
 
 #include <stdint.h>
+#include <vector>
 
 #if IS_DEVELOPMENT_BUILD
 #include <iostream>
-#endif // IS_DEBUG_BUILD
+#endif // IS_DEVELOPMENT_BUILD
 
 namespace dbz
 {
@@ -34,23 +35,27 @@ private:
 	{
 		uint32_t myOffset = 0u;
 		uint32_t mySize = 0u;
-		Block* myNext = nullptr;
+		uint32_t myNext = UINT32_MAX;
 	};
 
-	Block* FirstFit(uint32_t aSize, Block*& aParentNodeOut) const;
-	Block* BestFit(uint32_t aSize, Block*& aParentNodeOut) const;
+	uint32_t FirstFit(uint32_t aSize, uint32_t& aParentNodeOut) const;
+	uint32_t BestFit(uint32_t aSize, uint32_t& aParentNodeOut) const;
 
-	using SelectionMethodFn = Block* (MemoryPage::*)(uint32_t, Block*&) const;
-	MemoryPage(Block* aFreeBlock, SelectionMethodFn aSelectionMethod);
+	uint32_t GetUnusedBlockIndex();
 
-	Block* myFreeBlocks = nullptr;
-	Block* myInUseBlocks = nullptr;
+	using SelectionMethodFn = uint32_t (MemoryPage::*)(uint32_t, uint32_t&) const;
+	MemoryPage(uint32_t aSize, SelectionMethodFn aSelectionMethod);
+
 	SelectionMethodFn mySelectionMethodFn = nullptr;
+	std::vector<Block> myBlocks;
+	uint32_t myFreeBlockIndex = UINT32_MAX;
+	uint32_t myInUseBlockIndex = UINT32_MAX;
+	uint32_t myUnusedBlockIndices = UINT32_MAX;
 
 #if IS_DEVELOPMENT_BUILD
 public:
 	void Print(std::ostream& anOutputStream) const;
-#endif // IS_DEBUG_BUILD
+#endif // IS_DEVELOPMENT_BUILD
 };
 
 }
